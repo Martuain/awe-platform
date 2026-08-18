@@ -258,7 +258,7 @@ fi
 MERGE_MSG="Merge $REMOTE_NAME/$BRANCH into $BRANCH: import changes from $INCOMING_PATH"
 echo "Merging $REMOTE_NAME/$BRANCH into $BRANCH"
 set +e
-git merge --no-ff --allow-unrelated-histories -m "$MERGE_MSG" "$REMOTE_NAME/$BRANCH"
+git -c commit.gpgsign=false merge --no-ff --allow-unrelated-histories -m "$MERGE_MSG" "$REMOTE_NAME/$BRANCH"
 MERGE_EXIT=$?
 set -e
 
