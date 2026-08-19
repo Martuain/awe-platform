@@ -1,6 +1,6 @@
 # AWE Platform
 
-**Genesis v0.1.0**
+**Genesis v0.1.1 — CI Fix**
 
 AWE (AI-native Website Engineering) is an API-first, model-agnostic platform for turning structured business knowledge into production-ready digital experiences.
 

@@ -1,11 +1,14 @@
 # Changelog
 
+## [0.1.1] - CI Fix
+
+- Fixed Next.js TypeScript build dependencies.
+- Added explicit Studio TypeScript configuration.
+- Added Next.js type declarations.
+- Added ESLint 9 configuration.
+- Updated GitHub Actions checkout/setup-node major versions.
+- Updated Studio Dockerfile to use pnpm consistently.
+
 ## [0.1.0] - Genesis
 
 - Initial AWE Platform monorepo skeleton.
-- Added API-first FastAPI service.
-- Added Studio skeleton.
-- Added capability/context/knowledge/evaluation SDK boundaries.
-- Added CAP-001 Business Discovery specification, plan and tasks.
-- Added initial ADR baseline.
-- Added Docker Compose development environment.
