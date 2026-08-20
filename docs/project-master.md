@@ -1333,3 +1333,126 @@ These remain in the CAP-001 backlog and are not silently considered complete.
 > Every CAP implementation should first establish a deterministic end-to-end vertical slice, then replace individual development/test doubles with production infrastructure behind the same contract.
 
 This keeps the project aligned with the Constitution's `Simplicity Before Scale`, `Model Agnostic`, `Evaluation First` and `Traceability` principles.
+
+# CAP-002 Implementation Update — 2026-08-20
+
+## Scope
+
+CAP-002 — Website Strategy is the next capability after approved Business Discovery.
+Its purpose is to transform the approved Business Knowledge into a reviewable Website Strategy containing:
+
+- initial sitemap;
+- page objectives;
+- conversion/CTA direction;
+- content positioning and key messages;
+- tone guidance;
+- design principles;
+- responsive and accessibility priorities;
+- rationale and source context version.
+
+## Architectural decision
+
+CAP-002 consumes only **approved CAP-001 context**. It cannot generate a strategy from an unapproved discovery session.
+
+This establishes the intended capability chain:
+
+```text
+CAP-001 Business Discovery
+        ↓
+Approved Business Knowledge
+        ↓
+CAP-002 Website Strategy
+        ↓
+Review
+        ↓
+Approval
+```
+
+## First vertical slice
+
+The implementation establishes:
+
+- `WebsiteStrategy` domain model;
+- sitemap page model;
+- content strategy model;
+- design direction model;
+- strategy lifecycle (`draft → ready_for_review → approved`);
+- repository contract;
+- in-memory persistence;
+- PostgreSQL persistence row;
+- API endpoints for generation, retrieval and approval;
+- deterministic strategy generation service;
+- end-to-end API test.
+
+## Deliberate simplification
+
+CAP-002 initially uses deterministic rules rather than a live model. This preserves the vertical-slice rule established in CAP-001 and keeps the capability testable independently of provider availability.
+
+The production model adapter remains behind the existing provider boundary and will be introduced after the contract and evaluation behavior are proven.
+
+## Initial strategy output
+
+The first slice generates four foundational pages:
+
+- Home;
+- About;
+- Services;
+- Contact.
+
+This is intentionally not presented as the final website information architecture. It is a minimal baseline that can later expand from actual business evidence.
+
+## Acceptance behavior
+
+The API test verifies:
+
+```text
+Project
+  ↓
+CAP-001 Discovery
+  ↓
+CAP-001 Approval
+  ↓
+CAP-002 Generate
+  ↓
+READY_FOR_REVIEW
+  ↓
+CAP-002 Approval
+  ↓
+APPROVED
+```
+
+It also verifies that CAP-002 cannot be generated without an existing discovery context and that generation is based on the approved context.
+
+## Validation
+
+Python compilation succeeded and the API test suite currently passes:
+
+```text
+2 passed
+```
+
+The full Turborepo/GitHub CI build remains the authoritative monorepo validation because this environment does not provide the complete pnpm execution environment.
+
+## CAP-002 remaining backlog
+
+The current slice is intentionally incomplete. Next hardening work includes:
+
+- richer information architecture generation;
+- explicit audience/persona mapping;
+- page-to-goal traceability;
+- content requirements per page;
+- SEO intent and metadata strategy;
+- stronger design-token direction;
+- strategy evaluation;
+- revision workflow;
+- real model adapter;
+- Studio strategy review UI;
+- PostgreSQL migration management;
+- immutable version history rather than single-row replacement;
+- CAP-002 CI validation and baseline freeze.
+
+## New decision
+
+> CAP-002 must be derived from an approved Business Brief/Knowledge artifact and must remain independently reviewable before website generation begins.
+
+This preserves the business-first principle and prevents later website-generation capabilities from bypassing the alignment checkpoint established by CAP-001.

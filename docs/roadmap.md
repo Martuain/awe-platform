@@ -18,10 +18,15 @@
 - [ ] Human approval
 
 ### M2 Website Strategy
-- [ ] Information architecture
-- [ ] Sitemap
-- [ ] Content strategy
-- [ ] Design direction
+- [x] Information architecture baseline
+- [x] Sitemap baseline
+- [x] Content strategy baseline
+- [x] Design direction baseline
+- [ ] Strategy evaluation
+- [ ] Strategy revision workflow
+- [ ] Studio strategy review UI
+- [ ] Production model adapter
+- [ ] Migration hardening
 
 ### M3 Website Generation
 - [ ] Single supported framework

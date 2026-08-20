@@ -71,3 +71,44 @@ class DiscoverySession(BaseModel):
     session_id: UUID = Field(default_factory=uuid4)
     status: DiscoveryStatus = DiscoveryStatus.COLLECTING
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class StrategyStatus(str, Enum):
+    DRAFT = "draft"
+    READY_FOR_REVIEW = "ready_for_review"
+    APPROVED = "approved"
+
+
+class SitemapPage(BaseModel):
+    path: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=120)
+    objective: str = Field(min_length=1, max_length=500)
+    primary_cta: str | None = None
+
+
+class ContentStrategy(BaseModel):
+    positioning: str = ""
+    key_messages: list[str] = Field(default_factory=list)
+    tone: list[str] = Field(default_factory=list)
+    primary_cta: str | None = None
+
+
+class DesignDirection(BaseModel):
+    visual_principles: list[str] = Field(default_factory=list)
+    layout_principles: list[str] = Field(default_factory=list)
+    accessibility_priority: str = "high"
+    responsive_priority: str = "high"
+
+
+class WebsiteStrategy(BaseModel):
+    project_id: UUID
+    strategy_id: UUID = Field(default_factory=uuid4)
+    version: int = 1
+    status: StrategyStatus = StrategyStatus.DRAFT
+    sitemap: list[SitemapPage] = Field(default_factory=list)
+    content: ContentStrategy = Field(default_factory=ContentStrategy)
+    design: DesignDirection = Field(default_factory=DesignDirection)
+    rationale: list[str] = Field(default_factory=list)
+    source_context_version: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    approved_at: datetime | None = None

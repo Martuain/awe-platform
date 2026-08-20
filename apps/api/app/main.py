@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.routes import health, projects, discovery
+from app.routes import health, projects, discovery, strategy
 from app.store import build_repository, init_database
 
 
@@ -23,3 +23,4 @@ app = FastAPI(
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(discovery.router, prefix="/api/v1")
+app.include_router(strategy.router, prefix="/api/v1")
