@@ -100,6 +100,20 @@ class DesignDirection(BaseModel):
     responsive_priority: str = "high"
 
 
+class StrategyEvaluation(BaseModel):
+    completeness: float = Field(default=0.0, ge=0.0, le=1.0)
+    business_alignment: float = Field(default=0.0, ge=0.0, le=1.0)
+    traceability: float = Field(default=0.0, ge=0.0, le=1.0)
+    actionability: float = Field(default=0.0, ge=0.0, le=1.0)
+    overall: float = Field(default=0.0, ge=0.0, le=1.0)
+    findings: list[str] = Field(default_factory=list)
+    ready: bool = False
+
+
+class StrategyRevisionRequest(BaseModel):
+    feedback: str = Field(min_length=1, max_length=5000)
+
+
 class WebsiteStrategy(BaseModel):
     project_id: UUID
     strategy_id: UUID = Field(default_factory=uuid4)
@@ -109,6 +123,8 @@ class WebsiteStrategy(BaseModel):
     content: ContentStrategy = Field(default_factory=ContentStrategy)
     design: DesignDirection = Field(default_factory=DesignDirection)
     rationale: list[str] = Field(default_factory=list)
+    evaluation: StrategyEvaluation = Field(default_factory=StrategyEvaluation)
+    revision_feedback: list[str] = Field(default_factory=list)
     source_context_version: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     approved_at: datetime | None = None

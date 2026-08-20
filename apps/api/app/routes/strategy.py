@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 
+from app.models import StrategyRevisionRequest
 from app.services.strategy import WebsiteStrategyService
 
 router = APIRouter(prefix="/website-strategy", tags=["website-strategy"])
@@ -35,6 +36,16 @@ async def get_strategy(project_id: UUID, request: Request):
 async def approve_strategy(project_id: UUID, request: Request):
     try:
         return await service(request).approve(project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Website Strategy not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{project_id}/revise")
+async def revise_strategy(project_id: UUID, body: StrategyRevisionRequest, request: Request):
+    try:
+        return await service(request).revise(project_id, body.feedback)
     except KeyError:
         raise HTTPException(status_code=404, detail="Website Strategy not found") from None
     except ValueError as exc:

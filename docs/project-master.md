@@ -1456,3 +1456,37 @@ The current slice is intentionally incomplete. Next hardening work includes:
 > CAP-002 must be derived from an approved Business Brief/Knowledge artifact and must remain independently reviewable before website generation begins.
 
 This preserves the business-first principle and prevents later website-generation capabilities from bypassing the alignment checkpoint established by CAP-001.
+
+## CAP-002 Hardening Cycle — 2026-08-20
+
+The first CAP-002 vertical slice was hardened before advancing to CAP-003.
+
+### Changes implemented
+
+1. Added deterministic `StrategyEvaluation` with four dimensions:
+   - completeness;
+   - business alignment;
+   - traceability to approved Discovery context;
+   - actionability.
+2. Approval now requires the evaluation to be ready.
+3. Added explicit strategy revision API using user feedback.
+4. Revisions increment strategy version and preserve prior versions in the in-memory repository.
+5. Approved strategies cannot be revised.
+6. PostgreSQL persistence now maintains the current strategy plus append-only strategy-version records.
+7. Added an end-to-end test for generation, evaluation, revision, approval and post-approval immutability.
+
+### Why these changes
+
+The first slice proved that CAP-002 could consume approved CAP-001 context and produce a strategy. The hardening cycle addresses the next risk: allowing a strategy artifact to become authoritative without a repeatable quality gate or version history.
+
+The decision is deliberately incremental. We did not introduce a full semantic evaluator, a model-based revision agent, or a complex workflow engine yet. The deterministic evaluator establishes the contract first; richer intelligence can be placed behind the same boundary once its behavior can be tested.
+
+### Validation
+
+Local API tests: `2 passed`.
+Python compilation: successful.
+Full GitHub CI/Turborepo validation remains required before the CAP-002 baseline can be frozen.
+
+### New decision
+
+> A strategy becomes approvable only after deterministic structural evaluation, and every revision creates a new version rather than mutating an existing artifact.

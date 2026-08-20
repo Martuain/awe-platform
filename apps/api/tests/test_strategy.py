@@ -26,7 +26,18 @@ def test_strategy_requires_approved_discovery_and_generates_vertical_slice():
         assert [page["path"] for page in body["sitemap"]] == ["/", "/about", "/services", "/contact"]
         assert body["content"]["primary_cta"]
         assert body["design"]["responsive_priority"] == "high"
+        assert body["evaluation"]["ready"] is True
+        assert body["evaluation"]["traceability"] == 1.0
+
+        revised = client.post(f"/api/v1/website-strategy/{project_id}/revise", json={"feedback": "CTA: Book a consultation"})
+        assert revised.status_code == 200
+        assert revised.json()["version"] == 2
+        assert revised.json()["content"]["primary_cta"] == "Book a consultation"
+        assert revised.json()["status"] == "ready_for_review"
 
         approved = client.post(f"/api/v1/website-strategy/{project_id}/approve")
         assert approved.status_code == 200
         assert approved.json()["status"] == "approved"
+
+        blocked = client.post(f"/api/v1/website-strategy/{project_id}/revise", json={"feedback": "CTA: Contact us"})
+        assert blocked.status_code == 409

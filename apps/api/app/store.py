@@ -65,6 +65,17 @@ class WebsiteStrategyRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class WebsiteStrategyVersionRow(Base):
+    __tablename__ = "website_strategy_versions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    strategy_id: Mapped[str] = mapped_column(String(36), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class SourceMessageRow(Base):
     __tablename__ = "source_messages"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -90,7 +101,7 @@ class InMemoryRepository(Repository):
     def __init__(self) -> None:
         self.projects: dict[UUID, Project] = {}
         self.contexts: dict[UUID, DiscoveryContext] = {}
-        self.strategies: dict[UUID, WebsiteStrategy] = {}
+        self.strategies: dict[UUID, list[WebsiteStrategy]] = {}
 
     async def create_project(self, name: str) -> Project:
         project = Project(name=name)
@@ -130,12 +141,13 @@ class InMemoryRepository(Repository):
         return context
 
     async def create_strategy(self, strategy: WebsiteStrategy) -> WebsiteStrategy:
-        self.strategies[strategy.project_id] = strategy.model_copy(deep=True)
+        versions = self.strategies.setdefault(strategy.project_id, [])
+        versions.append(strategy.model_copy(deep=True))
         return strategy
 
     async def get_strategy(self, project_id: UUID) -> WebsiteStrategy | None:
-        strategy = self.strategies.get(project_id)
-        return strategy.model_copy(deep=True) if strategy else None
+        versions = self.strategies.get(project_id, [])
+        return versions[-1].model_copy(deep=True) if versions else None
 
     async def approve_strategy(self, project_id: UUID) -> WebsiteStrategy:
         strategy = await self.get_strategy(project_id)
@@ -145,7 +157,7 @@ class InMemoryRepository(Repository):
             raise ValueError("Website strategy is not ready for approval")
         strategy.status = StrategyStatus.APPROVED
         strategy.approved_at = datetime.now(timezone.utc)
-        self.strategies[project_id] = strategy
+        self.strategies[project_id].append(strategy.model_copy(deep=True))
         return strategy
 
 
@@ -231,15 +243,18 @@ class SqlAlchemyRepository(Repository):
 
     async def create_strategy(self, strategy: WebsiteStrategy) -> WebsiteStrategy:
         now = datetime.now(timezone.utc)
+        payload = strategy.model_dump_json()
         async with self.session_factory() as session:
             existing = await session.execute(select(WebsiteStrategyRow).where(WebsiteStrategyRow.project_id == str(strategy.project_id)))
             row = existing.scalars().first()
             if row:
-                row.payload = strategy.model_dump_json()
+                row.id = str(strategy.strategy_id)
+                row.payload = payload
                 row.status = strategy.status.value
                 row.version = strategy.version
             else:
-                session.add(WebsiteStrategyRow(id=str(strategy.strategy_id), project_id=str(strategy.project_id), status=strategy.status.value, version=strategy.version, payload=strategy.model_dump_json(), created_at=now))
+                session.add(WebsiteStrategyRow(id=str(strategy.strategy_id), project_id=str(strategy.project_id), status=strategy.status.value, version=strategy.version, payload=payload, created_at=now))
+            session.add(WebsiteStrategyVersionRow(id=str(uuid4()), project_id=str(strategy.project_id), strategy_id=str(strategy.strategy_id), version=strategy.version, status=strategy.status.value, payload=payload, created_at=now))
             await session.commit()
         return strategy
 
