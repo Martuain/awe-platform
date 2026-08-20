@@ -19,6 +19,8 @@ from app.models import (
     ProjectStatus,
     WebsiteStrategy,
     StrategyStatus,
+    BrandDesignDirection,
+    BrandDesignStatus,
 )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -76,6 +78,27 @@ class WebsiteStrategyVersionRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class BrandDesignDirectionRow(Base):
+    __tablename__ = "brand_design_directions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), index=True, unique=True)
+    status: Mapped[str] = mapped_column(String(32))
+    version: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class BrandDesignDirectionVersionRow(Base):
+    __tablename__ = "brand_design_direction_versions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    design_id: Mapped[str] = mapped_column(String(36), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class SourceMessageRow(Base):
     __tablename__ = "source_messages"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -95,6 +118,9 @@ class Repository:
     async def create_strategy(self, strategy: WebsiteStrategy) -> WebsiteStrategy: ...
     async def get_strategy(self, project_id: UUID) -> WebsiteStrategy | None: ...
     async def approve_strategy(self, project_id: UUID) -> WebsiteStrategy: ...
+    async def create_design(self, design: BrandDesignDirection) -> BrandDesignDirection: ...
+    async def get_design(self, project_id: UUID) -> BrandDesignDirection | None: ...
+    async def approve_design(self, project_id: UUID) -> BrandDesignDirection: ...
 
 
 class InMemoryRepository(Repository):
@@ -102,6 +128,7 @@ class InMemoryRepository(Repository):
         self.projects: dict[UUID, Project] = {}
         self.contexts: dict[UUID, DiscoveryContext] = {}
         self.strategies: dict[UUID, list[WebsiteStrategy]] = {}
+        self.designs: dict[UUID, list[BrandDesignDirection]] = {}
 
     async def create_project(self, name: str) -> Project:
         project = Project(name=name)
@@ -159,6 +186,25 @@ class InMemoryRepository(Repository):
         strategy.approved_at = datetime.now(timezone.utc)
         self.strategies[project_id].append(strategy.model_copy(deep=True))
         return strategy
+
+    async def create_design(self, design: BrandDesignDirection) -> BrandDesignDirection:
+        self.designs.setdefault(design.project_id, []).append(design.model_copy(deep=True))
+        return design
+
+    async def get_design(self, project_id: UUID) -> BrandDesignDirection | None:
+        versions = self.designs.get(project_id, [])
+        return versions[-1].model_copy(deep=True) if versions else None
+
+    async def approve_design(self, project_id: UUID) -> BrandDesignDirection:
+        design = await self.get_design(project_id)
+        if not design:
+            raise KeyError(project_id)
+        if design.status != BrandDesignStatus.READY_FOR_REVIEW:
+            raise ValueError("Brand & Design Direction is not ready for approval")
+        design.status = BrandDesignStatus.APPROVED
+        design.approved_at = datetime.now(timezone.utc)
+        self.designs[project_id].append(design.model_copy(deep=True))
+        return design
 
 
 class SqlAlchemyRepository(Repository):
@@ -273,6 +319,34 @@ class SqlAlchemyRepository(Repository):
         strategy.status = StrategyStatus.APPROVED
         strategy.approved_at = datetime.now(timezone.utc)
         return await self.create_strategy(strategy)
+
+
+    async def create_design(self, design: BrandDesignDirection) -> BrandDesignDirection:
+        now = datetime.now(timezone.utc)
+        payload = design.model_dump_json()
+        async with self.session_factory() as session:
+            result = await session.execute(select(BrandDesignDirectionRow).where(BrandDesignDirectionRow.project_id == str(design.project_id)))
+            row = result.scalars().first()
+            if row:
+                row.id = str(design.design_id); row.payload = payload; row.status = design.status.value; row.version = design.version
+            else:
+                session.add(BrandDesignDirectionRow(id=str(design.design_id), project_id=str(design.project_id), status=design.status.value, version=design.version, payload=payload, created_at=now))
+            session.add(BrandDesignDirectionVersionRow(id=str(uuid4()), project_id=str(design.project_id), design_id=str(design.design_id), version=design.version, status=design.status.value, payload=payload, created_at=now))
+            await session.commit()
+        return design
+
+    async def get_design(self, project_id: UUID) -> BrandDesignDirection | None:
+        async with self.session_factory() as session:
+            result = await session.execute(select(BrandDesignDirectionRow).where(BrandDesignDirectionRow.project_id == str(project_id)))
+            row = result.scalars().first()
+        return BrandDesignDirection.model_validate_json(row.payload) if row else None
+
+    async def approve_design(self, project_id: UUID) -> BrandDesignDirection:
+        design = await self.get_design(project_id)
+        if not design: raise KeyError(project_id)
+        if design.status != BrandDesignStatus.READY_FOR_REVIEW: raise ValueError("Brand & Design Direction is not ready for approval")
+        design.status = BrandDesignStatus.APPROVED; design.approved_at = datetime.now(timezone.utc)
+        return await self.create_design(design)
 
 
 async def init_database() -> None:

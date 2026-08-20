@@ -1490,3 +1490,25 @@ Full GitHub CI/Turborepo validation remains required before the CAP-002 baseline
 ### New decision
 
 > A strategy becomes approvable only after deterministic structural evaluation, and every revision creates a new version rather than mutating an existing artifact.
+
+# CAP-003 implementation record
+
+CAP-003 — Brand & Design Direction has entered implementation after CAP-002 was validated and frozen through GitHub CI.
+
+The first vertical slice deliberately requires approved CAP-001 Business Discovery and approved CAP-002 Website Strategy. CAP-003 produces a versioned, reviewable Brand & Design Direction artifact containing brand attributes, visual principles, semantic color palette, typography direction, imagery guidance, component guidance, accessibility requirements, rationale and source strategy version.
+
+Key decisions:
+- Do not generate arbitrary visual design disconnected from approved strategy.
+- Use semantic palette guidance until real brand assets exist.
+- Treat accessibility and responsive behavior as first-class design requirements.
+- Keep human approval before downstream website composition.
+- Keep the approved artifact immutable.
+
+Deferred intentionally: logo generation, exact brand-asset extraction, font procurement, final design-token package, visual editor, image-generation provider and pixel-level design files. These require evidence from the capability rather than premature infrastructure.
+
+CAP-003 initial API:
+- POST `/api/v1/brand-design/generate?project_id=...`
+- GET `/api/v1/brand-design/{project_id}`
+- POST `/api/v1/brand-design/{project_id}/approve`
+
+The implementation is backed by repository abstractions for both in-memory deterministic testing and SQLAlchemy persistence. The next validation gate is the repository CI pipeline.

@@ -128,3 +128,41 @@ class WebsiteStrategy(BaseModel):
     source_context_version: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     approved_at: datetime | None = None
+
+class BrandDesignStatus(str, Enum):
+    DRAFT = "draft"
+    READY_FOR_REVIEW = "ready_for_review"
+    APPROVED = "approved"
+
+
+class ColorPalette(BaseModel):
+    primary: str = ""
+    secondary: str = ""
+    accent: str = ""
+    background: str = ""
+    text: str = ""
+
+
+class TypographyDirection(BaseModel):
+    heading_style: str = ""
+    body_style: str = ""
+    hierarchy: str = "clear"
+
+
+class BrandDesignDirection(BaseModel):
+    project_id: UUID
+    design_id: UUID = Field(default_factory=uuid4)
+    version: int = 1
+    status: BrandDesignStatus = BrandDesignStatus.DRAFT
+    brand_attributes: list[str] = Field(default_factory=list)
+    visual_principles: list[str] = Field(default_factory=list)
+    color_palette: ColorPalette = Field(default_factory=ColorPalette)
+    typography: TypographyDirection = Field(default_factory=TypographyDirection)
+    imagery_direction: list[str] = Field(default_factory=list)
+    component_direction: list[str] = Field(default_factory=list)
+    accessibility_requirements: list[str] = Field(default_factory=list)
+    rationale: list[str] = Field(default_factory=list)
+    source_strategy_version: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    approved_at: datetime | None = None
+
