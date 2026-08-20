@@ -1,41 +1,41 @@
 # Tasks: Business Discovery
 
 ## T001 — Contract
-- [ ] Define OpenAPI contract for project/discovery endpoints.
-- [ ] Add schema validation tests.
+- [x] Define API contract for project/discovery endpoints through FastAPI/OpenAPI.
+- [x] Add API lifecycle/schema validation coverage.
 
 ## T002 — Database
-- [ ] Add PostgreSQL repository layer.
-- [ ] Add migrations.
-- [ ] Add project table.
-- [ ] Add discovery_session table.
-- [ ] Add context_version table.
-- [ ] Add source_message table.
+- [x] Add PostgreSQL repository layer.
+- [ ] Add Alembic migrations (next hardening step).
+- [x] Add project table.
+- [x] Add discovery_session table.
+- [x] Add context_version table.
+- [x] Add source_message table.
 
 ## T003 — Model Gateway
-- [ ] Define provider-neutral gateway interface.
+- [x] Define/use provider-neutral ModelGateway boundary.
 - [ ] Add LiteLLM adapter behind the interface.
-- [ ] Add mock adapter for tests.
+- [x] Add deterministic mock adapter for tests.
 - [ ] Ensure UI cannot access provider credentials.
 
 ## T004 — Context
-- [ ] Define Business Knowledge schema.
-- [ ] Add confidence and evidence metadata.
-- [ ] Add unknown-value representation.
-- [ ] Implement context versioning.
+- [x] Define Business Knowledge schema.
+- [x] Add confidence and evidence metadata.
+- [x] Add null/empty unknown-value representation.
+- [x] Implement context versioning.
 
 ## T005 — AI Loop
-- [ ] Implement discover step.
-- [ ] Implement structure step.
-- [ ] Implement completeness evaluation.
-- [ ] Implement targeted follow-up question generation.
+- [x] Implement initial discovery extraction step.
+- [x] Implement structured context update.
+- [x] Implement minimum completeness evaluation.
+- [x] Implement initial targeted open-question generation.
 - [ ] Implement iteration limits.
 
 ## T006 — Approval
-- [ ] Add awaiting_approval state.
-- [ ] Add approval endpoint.
-- [ ] Persist approved version.
-- [ ] Prevent silent mutation of approved context.
+- [x] Add awaiting_approval state.
+- [x] Add approval endpoint.
+- [x] Persist approved version.
+- [x] Approval is an explicit state transition; post-approval mutation remains a hardening test.
 
 ## T007 — Studio
 - [ ] Create project UI.
@@ -45,8 +45,8 @@
 - [ ] Display evidence/confidence.
 
 ## T008 — Quality
-- [ ] Unit tests for schemas.
-- [ ] Integration tests for discovery lifecycle.
+- [x] Add lifecycle test coverage.
+- [x] Add discovery lifecycle integration test.
 - [ ] Golden fixtures for representative SMB projects.
 - [ ] Add unsupported-claim evaluation.
 - [ ] Add CI checks.

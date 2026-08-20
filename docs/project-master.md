@@ -1,0 +1,1335 @@
+# AWE Platform / AWE Studio --- Master Project Record
+
+**Genesis baseline:** v0.1.1 --- frozen\
+**Current milestone:** CAP-001 --- Business Discovery\
+**Status:** Living master document
+
+## 1. Executive status
+
+AWE is being developed as an AI-powered platform for automated website
+creation for SMBs. The ambition is not to become another
+prompt-to-website wrapper, but to make website creation substantially
+easier by understanding the business before building the website.
+
+**AWE Framework** is the underlying runtime, capability, context,
+evaluation, API and orchestration architecture.
+
+**AWE Studio** is the user-facing product built on that framework.
+
+This distinction is mandatory.
+
+Genesis v0.1.1 is frozen after the repository CI pipeline became green.
+CAP-001 is the first capability to exercise the architecture through a
+real end-to-end vertical slice.
+
+------------------------------------------------------------------------
+
+## 2. Origin
+
+The original problem was that SMBs and entrepreneurs face coding
+complexity, agency costs, long delivery cycles, high iteration cost and
+vendor lock-in when creating websites.
+
+The original product hypothesis was an AI/no-code SaaS platform that
+transformed high-level user input into production-ready websites.
+
+The original MVP focused on e-commerce catalog websites and envisioned
+specialized agents for layout, content, design, e-commerce and code
+generation.
+
+The original technical direction included FastAPI, Pydantic, SQLAlchemy,
+Alembic, PostgreSQL, Redis, Next.js, React, TypeScript, TailwindCSS,
+Docker, GitHub Actions and provider-agnostic LLM integration.
+
+------------------------------------------------------------------------
+
+## 3. Innovation-thinking evolution
+
+The project evolved through:
+
+**Observe → Define → Ideate → Select → Prototype → Test → Learn →
+Iterate**
+
+### Observe
+
+The market already contains many AI website builders. Therefore "AI
+generates websites" is not enough to differentiate AWE.
+
+### Define
+
+The stronger problem became:
+
+> Existing tools optimize for immediate generation; AWE should optimize
+> for understanding, alignment, quality and iterative improvement.
+
+### Ideate
+
+The system should progressively understand the business rather than
+force the user to provide a complete specification.
+
+### Select
+
+The chosen product loop became:
+
+``` text
+User
+ ↓
+Understand
+ ↓
+Identify gaps
+ ↓
+Ask / infer
+ ↓
+Structure
+ ↓
+Evaluate
+ ↓
+User review
+ ↓
+Revise
+ ↓
+Approve
+ ↓
+Next capability
+```
+
+### Why this direction
+
+It improves ease of use, quality, consistency, trust, iteration,
+extensibility and potentially cost.
+
+------------------------------------------------------------------------
+
+## 4. Alternatives rejected
+
+### Generic prompt-to-site
+
+Rejected as the core thesis because it is crowded, easy to commoditize
+and weakly differentiated.
+
+### Form-heavy wizard
+
+Rejected because it forces users to understand requirements before the
+system does.
+
+### Fully autonomous website agent
+
+Rejected for the initial architecture because business assumptions need
+transparency and validation.
+
+### Multi-agent swarm from day one
+
+Rejected for CAP-001 because it introduces orchestration complexity
+before the core capability model is proven.
+
+### Complete Context Engine first
+
+Rejected because the project should exercise abstractions through real
+capabilities before building every theoretical layer.
+
+------------------------------------------------------------------------
+
+## 5. Product thesis
+
+The project moved from:
+
+> Can AI generate websites?
+
+to:
+
+> Can AI make website creation dramatically easier?
+
+and finally to:
+
+> Can an AI platform understand an SMB's business, collaborate with its
+> owner, establish trustworthy context, make complex website decisions
+> progressively, and execute those decisions through reusable
+> capabilities at a cost and level of simplicity that makes
+> professional-quality websites accessible to ordinary businesses?
+
+That is the current product thesis.
+
+------------------------------------------------------------------------
+
+## 6. AWE Framework vs AWE Studio
+
+### AWE Framework
+
+Provides:
+
+-   capability contracts;
+-   context management;
+-   AI runtime;
+-   prompt execution;
+-   model abstraction;
+-   evaluation;
+-   artifact management;
+-   provenance;
+-   orchestration;
+-   persistence;
+-   API contracts.
+
+### AWE Studio
+
+Provides:
+
+-   project creation;
+-   guided discovery;
+-   visual interaction;
+-   website strategy;
+-   website creation;
+-   preview;
+-   editing;
+-   publishing.
+
+Relationship:
+
+``` text
+AWE Studio
+    ↓
+AWE API
+    ↓
+AWE Framework
+    ├── Context
+    ├── Runtime
+    ├── Evaluation
+    └── Capabilities
+```
+
+------------------------------------------------------------------------
+
+## 7. API-first decision
+
+AWE is API-first.
+
+Studio is a client of AWE capabilities, not the location where
+capability business logic lives.
+
+Reasons:
+
+1.  Reusability.
+2.  Clean boundaries.
+3.  Future integrations.
+4.  Independent evolution of Studio.
+5.  Potential partner/developer access.
+6.  Testability.
+
+------------------------------------------------------------------------
+
+## 8. Open-source-first decision
+
+The project prefers mature open-source technology wherever practical.
+
+This applies to frameworks, databases, infrastructure, testing,
+observability, orchestration and developer tooling.
+
+Commercial model providers remain replaceable behind an abstraction.
+
+------------------------------------------------------------------------
+
+## 9. Provider-agnostic runtime
+
+The runtime should depend on an abstraction such as:
+
+``` text
+LLMProvider
+ ├── complete()
+ ├── count_tokens()
+ └── get_pricing()
+```
+
+The project originally contemplated OpenAI and Anthropic and a unified
+provider abstraction.
+
+The stronger current rule is:
+
+> The capability contract belongs to AWE; the model provider is an
+> implementation detail.
+
+This enables model substitution, cost optimization, mock testing and
+future open-weight models.
+
+------------------------------------------------------------------------
+
+## 10. Capability model
+
+A capability is the primary product abstraction.
+
+``` text
+Capability
+ ├── Input contract
+ ├── Context
+ ├── Runtime / Agent
+ ├── Prompt
+ ├── Tools
+ ├── Artifact
+ ├── Evaluation
+ ├── Human checkpoint
+ └── Persistence
+```
+
+An **agent** describes how AI performs work.
+
+A **capability** describes what the product can do.
+
+One capability may use one agent today and multiple agents or
+deterministic functions later.
+
+------------------------------------------------------------------------
+
+## 11. Context and provenance
+
+Context is a first-class reusable asset.
+
+Important information should distinguish:
+
+``` text
+KNOWN
+INFERRED
+ASSUMED
+UNKNOWN
+USER-APPROVED
+USER-REJECTED
+```
+
+Important values should eventually carry provenance, confidence and
+approval state.
+
+Example:
+
+``` json
+{
+  "value": "Early-stage SaaS founders",
+  "source": "agent_inference",
+  "confidence": 0.78,
+  "approved": false
+}
+```
+
+versus user-confirmed information.
+
+This is a central part of the AWE trust model.
+
+------------------------------------------------------------------------
+
+## 12. Human-in-the-loop
+
+AWE is not designed around eliminating humans from meaningful business
+decisions.
+
+The principle is:
+
+> AI executes reasoning and synthesis; humans validate consequential
+> business decisions.
+
+The interaction is:
+
+``` text
+AI proposes
+ ↓
+User reviews
+ ↓
+User corrects or approves
+ ↓
+Artifact becomes authoritative
+```
+
+------------------------------------------------------------------------
+
+## 13. Genesis baseline
+
+Genesis established the initial AWE monorepo/Turborepo foundation,
+including packages such as:
+
+-   `@awe/capability-sdk`
+-   `@awe/context-engine`
+-   `@awe/evaluation`
+-   `@awe/knowledge-engine`
+-   `@awe/plugin-sdk`
+-   `@awe/prompt-runtime`
+-   `@awe/shared`
+-   `@awe/studio`
+
+The Studio application is part of this architecture.
+
+### Genesis CI lessons
+
+The repository went through several CI stabilization issues:
+
+1.  Missing TypeScript type dependencies (`@types/react`,
+    `@types/node`).
+2.  Missing committed `pnpm-lock.yaml`.
+3.  Duplicate pnpm version declarations between GitHub Actions and
+    `package.json`.
+4.  Node 20 deprecation warnings on GitHub-hosted runners.
+
+The first three caused actual workflow problems and were corrected. The
+Node warning was not treated as the root cause.
+
+Once CI passed, Genesis was tagged:
+
+``` text
+v0.1.1
+```
+
+This baseline is immutable.
+
+------------------------------------------------------------------------
+
+# 14. CAP-001 --- Business Discovery
+
+CAP-001 is the first real AWE capability.
+
+Its purpose:
+
+> Transform an unstructured business description into a structured,
+> traceable, evaluated and user-approved Business Brief.
+
+This capability was selected because it tests the most important product
+thesis:
+
+> AWE can understand before it builds.
+
+------------------------------------------------------------------------
+
+## 15. Why discovery comes first
+
+A website depends on business understanding.
+
+``` text
+Wrong business understanding
+ ↓
+Wrong audience
+ ↓
+Wrong positioning
+ ↓
+Wrong content
+ ↓
+Wrong UX
+ ↓
+Wrong website
+```
+
+Therefore the preferred sequence is:
+
+``` text
+Business Discovery
+ ↓
+Business Brief
+ ↓
+Website Strategy
+ ↓
+Design
+ ↓
+Content
+ ↓
+Implementation
+ ↓
+Deployment
+```
+
+------------------------------------------------------------------------
+
+## 16. CAP-001 experience
+
+A user can start naturally:
+
+> "I run a small architecture studio in Madrid. We mainly work with
+> residential renovations and want a website that generates qualified
+> enquiries from homeowners."
+
+AWE extracts what is known and identifies what remains uncertain.
+
+It should ask only questions that materially affect the outcome.
+
+Question priority is:
+
+``` text
+Business impact
+×
+Uncertainty
+×
+Downstream dependency
+```
+
+This directly supports the ease-of-use objective.
+
+------------------------------------------------------------------------
+
+## 17. Business Brief
+
+Initial structure:
+
+``` text
+Business
+Audience
+Offering
+Positioning
+Goals
+Brand
+Constraints
+Assumptions
+Open Questions
+```
+
+Conceptually:
+
+``` json
+{
+  "business": {},
+  "audience": {},
+  "offering": {},
+  "positioning": {},
+  "goals": {},
+  "brand": {},
+  "constraints": [],
+  "assumptions": [],
+  "open_questions": []
+}
+```
+
+The artifact is versioned.
+
+Example:
+
+``` text
+Business Brief v1
+ ↓
+User correction
+ ↓
+Business Brief v2
+ ↓
+Evaluation
+ ↓
+Approval
+```
+
+------------------------------------------------------------------------
+
+## 18. Discovery session states
+
+Initial lifecycle:
+
+``` text
+ACTIVE
+ ↓
+DISCOVERING
+ ↓
+READY_FOR_REVIEW
+ ↓
+REVISION_REQUIRED
+ ↓
+READY_FOR_REVIEW
+ ↓
+APPROVED
+```
+
+The state model is intentionally small.
+
+------------------------------------------------------------------------
+
+## 19. Discovery AI loop
+
+``` text
+User input
+ ↓
+Read context
+ ↓
+Interpret
+ ↓
+Identify gaps
+ ↓
+Ask or draft
+ ↓
+User response
+ ↓
+Update context
+ ↓
+Generate artifact
+ ↓
+Evaluate
+ ↓
+User review
+ ↓
+Revise or approve
+```
+
+The loop is bounded and purposeful.
+
+It is not an uncontrolled autonomous recursion.
+
+------------------------------------------------------------------------
+
+## 20. Discovery Agent responsibilities
+
+The Discovery Agent:
+
+1.  interprets input;
+2.  extracts facts;
+3.  identifies gaps;
+4.  detects contradictions;
+5.  makes labelled inferences;
+6.  asks high-value questions;
+7.  proposes Business Brief changes;
+8.  incorporates corrections;
+9.  preserves approved decisions;
+10. exposes important assumptions.
+
+It does not own website code, visual design, deployment or arbitrary
+external actions.
+
+------------------------------------------------------------------------
+
+## 21. Evaluation
+
+CAP-001 evaluates:
+
+  Dimension             Question
+  --------------------- --------------------------------------------
+  Completeness          Is enough information known?
+  Consistency           Are there contradictions?
+  Provenance            Can important claims be traced?
+  Confidence            Are important conclusions reliable enough?
+  Business usefulness   Can downstream capabilities use the brief?
+
+Evaluation does not replace user approval.
+
+------------------------------------------------------------------------
+
+## 22. API contract
+
+Initial API concept:
+
+``` http
+POST /api/v1/projects/{project_id}/discovery
+POST /api/v1/discovery/{session_id}/messages
+GET  /api/v1/discovery/{session_id}
+GET  /api/v1/discovery/{session_id}/brief
+POST /api/v1/discovery/{session_id}/feedback
+POST /api/v1/discovery/{session_id}/approve
+```
+
+Exact routing must be reconciled with the actual Genesis repository
+before implementation.
+
+------------------------------------------------------------------------
+
+## 23. CAP-001 runtime
+
+``` text
+AWE Studio
+    ↓
+AWE API
+    ↓
+Business Discovery Capability
+    ├── Context Engine
+    ├── Prompt Runtime
+    ├── Discovery Agent
+    └── Evaluation
+    ↓
+Business Brief
+    ↓
+Persistence
+```
+
+Studio must not contain the core discovery logic.
+
+------------------------------------------------------------------------
+
+## 24. CAP-001 model testing
+
+The first implementation should be testable without a live commercial
+model.
+
+``` text
+Discovery Capability
+       ↓
+LLMProvider
+       ├── Mock provider
+       ├── Provider A
+       └── Provider B
+```
+
+The mock provider allows deterministic unit and integration tests.
+
+The real model becomes a provider implementation.
+
+------------------------------------------------------------------------
+
+## 25. CAP-001 implementation sequence
+
+``` text
+CAP-001.01  Inspect Genesis interfaces
+CAP-001.02  Define domain types
+CAP-001.03  Define BusinessBrief
+CAP-001.04  Define provenance model
+CAP-001.05  Define session state machine
+CAP-001.06  Define DiscoveryAgent interface
+CAP-001.07  Implement mock LLM provider
+CAP-001.08  Implement Discovery capability
+CAP-001.09  Implement evaluator
+CAP-001.10  Implement persistence
+CAP-001.11  Implement REST API
+CAP-001.12  Add integration tests
+CAP-001.13  Add end-to-end test
+CAP-001.14  Connect Studio
+CAP-001.15  Run CI
+CAP-001.16  Freeze CAP-001 baseline
+```
+
+------------------------------------------------------------------------
+
+## 26. CAP-001 acceptance scenario
+
+Reference scenario:
+
+User:
+
+> "I run a boutique digital marketing agency in Madrid. We help
+> restaurants increase bookings through Instagram and Google."
+
+AWE identifies the agency, location, audience and outcome.
+
+It asks focused questions about customer type and primary conversion.
+
+The user answers.
+
+AWE creates Business Brief v1.
+
+The user adds:
+
+> "Our real differentiator is that we only charge when bookings
+> increase."
+
+AWE produces Business Brief v2.
+
+Evaluation runs again.
+
+The user approves.
+
+The approved artifact is persisted and retrievable through the API.
+
+This is the canonical CAP-001 acceptance flow.
+
+------------------------------------------------------------------------
+
+## 27. Original architecture vs current architecture
+
+### Original
+
+``` text
+User
+ ↓
+Website configuration
+ ↓
+Agent orchestration
+ ↓
+WebsiteState
+ ↓
+Layout
+ ↓
+Content
+ ↓
+Design
+ ↓
+E-commerce
+ ↓
+Code
+ ↓
+Deployment
+```
+
+### Current
+
+``` text
+User
+ ↓
+Business Discovery
+ ↓
+Business Context
+ ↓
+Approved Business Brief
+ ↓
+Website Strategy
+ ↓
+Design / Content / Build capabilities
+ ↓
+Quality
+ ↓
+Deployment
+```
+
+The major change is a change in the product's unit of intelligence.
+
+------------------------------------------------------------------------
+
+## 28. Original agent model vs current capability model
+
+Original:
+
+``` text
+Agent = primary abstraction
+```
+
+Current:
+
+``` text
+Capability = primary product abstraction
+Agent = implementation mechanism
+```
+
+This is one of the major architectural evolutions.
+
+------------------------------------------------------------------------
+
+## 29. Long-term capability roadmap
+
+### CAP-001 --- Business Discovery
+
+Understand the business.
+
+### CAP-002 --- Website Strategy / Information Architecture
+
+Generate sitemap, page objectives, information architecture and
+conversion architecture.
+
+### CAP-003 --- Brand & Design Direction
+
+Generate visual identity and design tokens.
+
+### CAP-004 --- Content Strategy & Generation
+
+Generate content, CTAs and SEO structure.
+
+### CAP-005 --- Website Composition
+
+Compose the actual site.
+
+### CAP-006 --- Code / Runtime Generation
+
+Produce maintainable implementation.
+
+### CAP-007 --- Quality Assurance
+
+Evaluate accessibility, responsiveness, SEO, consistency, performance
+and content quality.
+
+### CAP-008 --- Deployment
+
+Publish.
+
+### CAP-009 --- Continuous Improvement
+
+Use feedback and analytics to improve the website.
+
+------------------------------------------------------------------------
+
+## 30. Product flywheel
+
+``` text
+Business understanding
+ ↓
+Better website
+ ↓
+User feedback
+ ↓
+Performance data
+ ↓
+Better context
+ ↓
+Better recommendations
+ ↓
+Better website
+```
+
+This is a potential long-term moat.
+
+------------------------------------------------------------------------
+
+## 31. Differentiation hypothesis
+
+AWE's intended differentiation combines:
+
+1.  Business-first AI.
+2.  Progressive discovery.
+3.  Structured context.
+4.  Provenance.
+5.  Human alignment.
+6.  Capability architecture.
+7.  Model independence.
+8.  Low-friction UX.
+9.  Cost-aware execution.
+10. Open-source-first technology.
+
+These are hypotheses to validate, not unsupported claims that AWE is
+already market-leading.
+
+------------------------------------------------------------------------
+
+## 32. Cost philosophy
+
+Cost is a product requirement.
+
+The runtime should eventually understand:
+
+``` text
+capability
+model
+tokens
+latency
+cost
+retries
+user
+project
+```
+
+This enables model routing, caching, cost budgets and use of cheaper
+models for simpler tasks.
+
+------------------------------------------------------------------------
+
+## 33. Observability
+
+The platform should eventually answer:
+
+> What capability ran, with what context, using what model, producing
+> what artifact, at what cost, with what evaluation result, and what did
+> the user decide?
+
+The original planning already included structured logs, correlation IDs,
+agent execution metrics, token usage, cost, latency and failure
+monitoring. The newer architecture extends these concepts from
+agent-level to capability-level observability.
+
+------------------------------------------------------------------------
+
+## 34. Testing strategy
+
+### Unit
+
+Schemas, state transitions, capability logic, prompts and evaluators.
+
+### Integration
+
+API, context, runtime, persistence and mock model.
+
+### End-to-end
+
+Complete user/capability lifecycle.
+
+### Real-model evaluation
+
+Selective validation after deterministic tests pass.
+
+This keeps the platform testable without making the whole suite
+dependent on live model behavior.
+
+------------------------------------------------------------------------
+
+## 35. Security and trust
+
+The system must not:
+
+-   expose API keys;
+-   represent AI assumptions as confirmed facts;
+-   silently overwrite approved decisions;
+-   execute arbitrary tools without defined permissions;
+-   log credentials.
+
+Future tool execution should use explicit permission boundaries.
+
+------------------------------------------------------------------------
+
+## 36. Governance
+
+Every significant capability should have:
+
+``` text
+spec.md
+plan.md
+tasks.md
+ADR-xxx.md
+```
+
+The master document records the historical reasoning and evolution.
+
+The documentation should be updated during implementation, not
+reconstructed at the end.
+
+------------------------------------------------------------------------
+
+## 37. What is frozen
+
+Currently stable:
+
+-   AWE Framework vs AWE Studio distinction.
+-   Genesis v0.1.1.
+-   API-first direction.
+-   Capability-first architecture.
+-   Provider-agnostic runtime.
+-   Business Discovery as CAP-001.
+-   Structured Business Brief.
+-   Provenance/assumption distinction.
+-   Evaluation before approval.
+-   Human checkpoint.
+-   No premature multi-agent swarm.
+-   No premature complete Context Engine.
+-   Open-source-first preference.
+-   Model-provider abstraction.
+
+------------------------------------------------------------------------
+
+## 38. What remains flexible
+
+Not permanently frozen:
+
+-   exact API route naming;
+-   exact persistence implementation;
+-   exact LLM provider/model;
+-   whether future capabilities use one or multiple agents;
+-   orchestration implementation;
+-   UI visual design;
+-   deployment provider;
+-   individual open-source component choices.
+
+These can be changed through explicit ADRs when implementation evidence
+warrants it.
+
+------------------------------------------------------------------------
+
+## 39. Historical MVP documents and reconciliation
+
+The original `plan.md`, `spec.md` and `tasks.md` describe an AI-powered
+website-builder SaaS MVP centered on e-commerce generation.
+
+They contain valuable foundations such as:
+
+-   FastAPI;
+-   Next.js/React;
+-   PostgreSQL;
+-   Redis;
+-   Docker;
+-   GitHub Actions;
+-   LLM abstraction;
+-   `WebsiteState`;
+-   `ExecutionContext`;
+-   `AgentBase`;
+-   `AgentExecution`;
+-   REST/WebSocket APIs;
+-   monitoring;
+-   testing;
+-   deployment.
+
+However, those documents should be treated as the historical foundation
+rather than silently overriding the newer AWE capability architecture.
+
+The old e-commerce pipeline remains useful as a future implementation
+target, but Business Discovery now precedes it.
+
+------------------------------------------------------------------------
+
+## 40. Current implementation rule
+
+Before adding infrastructure:
+
+> Does CAP-001 require it?
+
+Before adding an abstraction:
+
+> Has an actual capability demonstrated the need for it?
+
+Before adding an agent:
+
+> Is a separate agent necessary, or is this better represented as a
+> capability operation?
+
+This is the project's evidence-driven engineering rule.
+
+------------------------------------------------------------------------
+
+## 41. Master decision log
+
+  --------------------------------------------------------------------------------------------
+  ID                Decision                    Status            Rationale
+  ----------------- --------------------------- ----------------- ----------------------------
+  D-001             AI website creation for     Accepted          Core product problem
+                    SMBs                                          
+
+  D-002             Ease of use as product      Accepted          Non-technical target users
+                    requirement                                   
+
+  D-003             Low cost as product         Accepted          Competitive positioning
+                    requirement                                   
+
+  D-004             Differentiate beyond        Accepted          Crowded market
+                    generic AI generation                         
+
+  D-005             Business-first discovery    Accepted          Better downstream quality
+
+  D-006             AWE Framework ≠ AWE Studio  Frozen            Architectural/product
+                                                                  distinction
+
+  D-007             Capability-first            Frozen            Product-level abstraction
+                    architecture                                  
+
+  D-008             API-first                   Frozen            Reusability and separation
+
+  D-009             Model-provider abstraction  Frozen            Avoid vendor lock-in
+
+  D-010             Open-source-first           Accepted          Cost/control/composability
+                    preference                                    
+
+  D-011             Human approval for          Frozen            Trust
+                    consequential artifacts                       
+
+  D-012             Provenance for important    Frozen            Transparency
+                    information                                   
+
+  D-013             No initial agent swarm      Frozen for        Avoid premature complexity
+                                                CAP-001           
+
+  D-014             No complete Context Engine  Frozen for        Evidence-driven design
+                    before use                  CAP-001           
+
+  D-015             Genesis v0.1.1 frozen       Frozen            Known-good baseline
+
+  D-016             CAP-001 = Business          Frozen            First proving capability
+                    Discovery                                     
+
+  D-017             Mock/provider-independent   Accepted          Deterministic validation
+                    testing                                       
+
+  D-018             Versioned artifacts         Frozen for        Traceability
+                                                CAP-001           
+  --------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## 42. Current project state
+
+``` text
+PRODUCT
+AWE Studio
+    ↓
+FRAMEWORK
+AWE Framework
+    ↓
+GENESIS
+v0.1.1 — FROZEN / CI GREEN
+    ↓
+CAP-001
+Business Discovery
+    ├── Design: FROZEN
+    ├── API: DEFINED
+    ├── Runtime: DEFINED
+    ├── Evaluation: DEFINED
+    ├── Persistence: DEFINED
+    └── Implementation: NEXT
+```
+
+------------------------------------------------------------------------
+
+## 43. Immediate engineering action
+
+The first source-level implementation task is:
+
+**CAP-001.01 --- Inspect Genesis interfaces**
+
+Review:
+
+``` text
+packages/capability-sdk
+packages/context-engine
+packages/evaluation
+packages/prompt-runtime
+packages/shared
+apps/studio
+```
+
+Determine:
+
+-   existing exports;
+-   existing types;
+-   existing API boundaries;
+-   runtime contracts;
+-   persistence strategy;
+-   testing strategy.
+
+Then implement CAP-001 inside those boundaries.
+
+The current File Library contains the earlier `spec.md`, `plan.md` and
+`tasks.md`, but not the complete current repository source tree.
+Therefore source-level modifications should not be fabricated until the
+exact Genesis repository is available for inspection.
+
+------------------------------------------------------------------------
+
+## 44. Living-document protocol
+
+After every milestone:
+
+1.  Implement.
+2.  Test.
+3.  Review.
+4.  Record deviations.
+5.  Update this document.
+6.  Update the decision log.
+7.  Update the roadmap.
+8.  Tag the resulting baseline.
+9.  Start the next capability.
+
+------------------------------------------------------------------------
+
+# Appendix --- Historical source record
+
+The available historical project documents are:
+
+-   `plan.md`
+-   `spec.md`
+-   `tasks.md`
+
+The original `plan.md` described an AI-powered no-code website builder
+focused initially on e-commerce catalog sites, with specialized layout,
+content, design, code and e-commerce agents.
+
+The original `spec.md` defined REST/WebSocket APIs, authentication,
+project management, website generation, `WebsiteState`, `AgentBase`,
+`ExecutionContext`, `LLMProvider`, agent execution records, design
+systems, testing and monitoring.
+
+The original `tasks.md` translated those concepts into implementation
+tasks, including repository setup, PostgreSQL, FastAPI, authentication,
+provider abstraction, context layer, project APIs, generation APIs,
+agent implementation, WebSocket progress, monitoring, API documentation
+and E2E testing.
+
+These documents are retained as historical design evidence and
+reconciled with the newer AWE capability architecture.
+
+------------------------------------------------------------------------
+
+# Final project principle
+
+> **Build the smallest real capability that proves the architecture,
+> document what we learn, and let evidence---not abstraction
+> enthusiasm---drive the next layer of the platform.**
+
+# CAP-001 Implementation Update — 2026-08-20
+
+## Source baseline inspected
+
+The supplied `awe-platform-genesis-v0.1.1(1).zip` is confirmed as the repository baseline. It contains the frozen Genesis architecture, CI workflow, ADRs and CAP-001 specification/plan/tasks.
+
+The actual repository confirms that Genesis already established:
+
+- FastAPI API skeleton;
+- Next.js Studio skeleton;
+- PostgreSQL/Redis Docker environment;
+- capability SDK boundary;
+- context engine boundary;
+- evaluation boundary;
+- knowledge engine boundary;
+- provider-neutral `ModelGateway` boundary;
+- API-first ADR;
+- capability-driven ADR;
+- open-source-first ADR;
+- human-approval ADR;
+- model-agnostic ADR;
+- CAP-001 specification, implementation plan and task list.
+
+## CAP-001 implementation decisions
+
+### 1. Preserve Genesis boundaries
+
+The implementation extends the existing API, context and runtime boundaries instead of introducing a second architecture.
+
+### 2. Persistence
+
+CAP-001 now has a repository abstraction with:
+
+- `InMemoryRepository` for deterministic tests/local lightweight execution;
+- `SqlAlchemyRepository` for the configured PostgreSQL runtime.
+
+The PostgreSQL model introduces:
+
+- `projects`;
+- `discovery_sessions`;
+- `context_versions`;
+- `source_messages`.
+
+### 3. Knowledge structure
+
+The previous flat discovery context was replaced with structured Business Knowledge fields carrying:
+
+- value;
+- confidence;
+- source references.
+
+Unknown information remains represented as `null`/empty rather than being invented.
+
+### 4. Lifecycle
+
+CAP-001 now explicitly supports:
+
+```text
+collecting → awaiting_approval → approved
+```
+
+Approval is a separate API action and cannot occur while the capability is still incomplete.
+
+### 5. AI boundary
+
+A deterministic `MockModelGateway` was introduced first. This is intentional: CAP-001 can be tested without depending on a live model provider.
+
+The existing `ModelGateway` concept remains the architectural boundary for future provider adapters.
+
+### 6. Evaluation / completeness
+
+The first vertical slice calculates a minimal completeness score from critical discovery information and produces an open question when required information is missing.
+
+This is deliberately a minimal evaluator, not the final quality/evaluation framework.
+
+### 7. Tests
+
+A complete API lifecycle test was added covering:
+
+```text
+create project
+→ start discovery
+→ add partial information
+→ add information completing the minimum context
+→ reach awaiting_approval
+→ explicitly approve
+```
+
+The API test passes locally with Python dependencies available.
+
+## Validation limitation
+
+The execution environment used for source inspection does not contain `pnpm`, so the JavaScript/Turborepo build could not be executed locally in this pass.
+
+The repository retains the previously successful GitHub Actions configuration using Node 22 and pnpm 10. The next CI run is therefore required to validate the complete monorepo after these changes.
+
+This is recorded as a validation limitation, not as a claim that CI is already green for the CAP-001 changes.
+
+## Deviations from the original CAP-001 plan
+
+The specification/plan calls for PostgreSQL, provider abstraction, structured output, confidence/evidence, the AI loop, approval and evaluation. The first implementation deliberately establishes these as a vertical slice rather than attempting every production-hardening detail at once.
+
+Deferred from this implementation pass:
+
+- Alembic migration history;
+- real LiteLLM adapter;
+- production structured-output enforcement against a live model;
+- sophisticated completeness/consistency/unsupported-claim evaluators;
+- Studio discovery UI;
+- competitor/document ingestion;
+- advanced observability.
+
+These remain in the CAP-001 backlog and are not silently considered complete.
+
+## New engineering rule confirmed
+
+> Every CAP implementation should first establish a deterministic end-to-end vertical slice, then replace individual development/test doubles with production infrastructure behind the same contract.
+
+This keeps the project aligned with the Constitution's `Simplicity Before Scale`, `Model Agnostic`, `Evaluation First` and `Traceability` principles.

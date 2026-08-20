@@ -1,10 +1,23 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+
 from app.routes import health, projects, discovery
+from app.store import build_repository, init_database
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_database()
+    app.state.repository = build_repository()
+    yield
+
 
 app = FastAPI(
     title="AWE Platform API",
     version="0.1.0",
-    description="API-first foundation for AWE Studio."
+    description="API-first foundation for AWE Studio.",
+    lifespan=lifespan,
 )
 
 app.include_router(health.router, prefix="/api/v1")
