@@ -374,6 +374,22 @@ v0.1.1
 
 This baseline is immutable.
 
+### Engineering environment and configuration baseline
+
+The repository subsequently went through a local environment/tooling
+stabilization cycle covering ESLint flat configuration, pnpm workspace
+installation state, Python runtime selection, pytest execution and Turbo
+task output configuration. The final known-good state is documented in the
+following engineering baseline:
+
+[Environment & Configuration Baseline](environment-configuration-baseline.md)
+
+This document records the problems encountered, the diagnostic evidence,
+the successful recovery steps, the rationale for ESLint/pnpm/Turborepo, the
+validated toolchain versions, and the remaining non-blocking improvements.
+It should be treated as the technical reference for environment/tooling
+issues rather than repeated in this master record.
+
 ------------------------------------------------------------------------
 
 # 14. CAP-001 --- Business Discovery
