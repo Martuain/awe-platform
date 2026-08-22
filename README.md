@@ -46,3 +46,4 @@ API docs: http://localhost:8000/docs
 ## Repository status
 
 This is an implementation baseline, not a finished SaaS product.
+\n\n## Validation prerequisites\n\nThe repository contains a Python API test suite. Install the API dependencies before running the full test command:\n\n```bash\npython3 -m pip install -r apps/api/requirements.txt\npnpm build\npnpm lint\npnpm test\n```\n\nGitHub CI provisions Python automatically.\n
