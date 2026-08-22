@@ -12,10 +12,11 @@
 ### M1 Business Discovery
 - [ ] PostgreSQL persistence
 - [ ] AI model gateway
-- [ ] Conversational loop
-- [ ] Context extraction
+- [x] Conversational loop (deterministic development gateway)
+- [x] Context extraction (deterministic development baseline)
 - [ ] Evaluation
-- [ ] Human approval
+- [x] Human approval
+- [x] Studio discovery review flow
 
 ### M2 Website Strategy
 - [x] Information architecture baseline
