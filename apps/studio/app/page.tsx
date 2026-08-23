@@ -1,290 +1,228 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type DiscoveryStatus = "collecting" | "awaiting_approval" | "approved";
-
-type KnowledgeField = {
-  value: string | null;
-  confidence: number;
-};
-
+type Stage = "discovery" | "strategy" | "design";
+type Project = { id: string; name: string };
 type DiscoveryContext = {
-  project_id: string;
-  session_id: string;
+  status: "collecting" | "awaiting_approval" | "approved";
   version: number;
-  status: DiscoveryStatus;
-  knowledge: {
-    business_name: KnowledgeField;
-    industry: KnowledgeField;
-    goals: KnowledgeField[];
-    audience: KnowledgeField[];
-    value_proposition: KnowledgeField;
-  };
-  source_messages: string[];
   completeness_score: number;
   open_questions: string[];
-  approved_at: string | null;
+  source_messages: string[];
+  knowledge: {
+    business_name: { value?: string | null };
+    industry: { value?: string | null };
+    goals: { value?: string | null }[];
+    audience: { value?: string | null }[];
+    value_proposition: { value?: string | null };
+  };
+};
+type Strategy = {
+  version: number;
+  status: "draft" | "ready_for_review" | "approved";
+  sitemap: { path: string; name: string; objective: string; primary_cta?: string | null }[];
+  content: { positioning: string; key_messages: string[]; tone: string[]; primary_cta?: string | null };
+  design: { visual_principles: string[]; layout_principles: string[]; accessibility_priority: string; responsive_priority: string };
+  rationale: string[];
+  evaluation: { completeness: number; business_alignment: number; traceability: number; actionability: number; overall: number; findings: string[]; ready: boolean };
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${API}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
+    headers: { "Content-Type": "application/json", ...(options?.headers || {}) },
   });
-
   if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.detail ?? `Request failed (${response.status})`);
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || `Request failed (${response.status})`);
   }
+  return response.json();
+}
 
-  return response.json() as Promise<T>;
+function Score({ value }: { value: number }) {
+  return <strong>{Math.round(value * 100)}%</strong>;
 }
 
 export default function Home() {
-  const [projectName, setProjectName] = useState("Demo website project");
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [context, setContext] = useState<DiscoveryContext | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
+  const [stage, setStage] = useState<Stage>("discovery");
+  const [name, setName] = useState("");
   const [message, setMessage] = useState("");
+  const [context, setContext] = useState<DiscoveryContext | null>(null);
+  const [strategy, setStrategy] = useState<Strategy | null>(null);
+  const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const savedProjectId = window.localStorage.getItem("awe.projectId");
-    if (!savedProjectId) return;
-
-    setProjectId(savedProjectId);
-    api<DiscoveryContext>(`/api/v1/business-discovery/context/${savedProjectId}`)
-      .then(setContext)
-      .catch(() => window.localStorage.removeItem("awe.projectId"));
+    const saved = window.localStorage.getItem("awe-project-id");
+    if (!saved) return;
+    api<Project>(`/api/v1/projects/${saved}`)
+      .then(async (p) => {
+        setProject(p);
+        try {
+          const c = await api<DiscoveryContext>(`/api/v1/business-discovery/context/${p.id}`);
+          setContext(c);
+          if (c.status === "approved") {
+            try {
+              const s = await api<Strategy>(`/api/v1/website-strategy/${p.id}`);
+              setStrategy(s);
+              setStage("strategy");
+            } catch {
+              setStage("strategy");
+            }
+          }
+        } catch {
+          // Project exists, but discovery has not started yet.
+        }
+      })
+      .catch(() => window.localStorage.removeItem("awe-project-id"));
   }, []);
+
+  const knowledgeSummary = useMemo(() => {
+    if (!context) return [];
+    return [
+      ["Industry", context.knowledge.industry.value],
+      ["Goal", context.knowledge.goals.map((g) => g.value).filter(Boolean).join(", ")],
+      ["Audience", context.knowledge.audience.map((g) => g.value).filter(Boolean).join(", ")],
+      ["Value proposition", context.knowledge.value_proposition.value],
+    ].filter(([, value]) => value);
+  }, [context]);
 
   async function createProject(event: FormEvent) {
     event.preventDefault();
-    setBusy(true);
-    setError(null);
+    if (!name.trim()) return;
+    setBusy(true); setError("");
     try {
-      const project = await api<{ id: string }>("/api/v1/projects", {
-        method: "POST",
-        body: JSON.stringify({ name: projectName }),
-      });
-      const discovery = await api<DiscoveryContext>(
-        `/api/v1/business-discovery/start?project_id=${project.id}`,
-        { method: "POST" },
-      );
-      window.localStorage.setItem("awe.projectId", project.id);
-      setProjectId(project.id);
-      setContext(discovery);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create project");
-    } finally {
-      setBusy(false);
-    }
+      const p = await api<Project>("/api/v1/projects", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+      await api(`/api/v1/business-discovery/start?project_id=${p.id}`, { method: "POST" });
+      const c = await api<DiscoveryContext>(`/api/v1/business-discovery/context/${p.id}`);
+      setProject(p); setContext(c); setName("");
+      window.localStorage.setItem("awe-project-id", p.id);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to create project"); }
+    finally { setBusy(false); }
   }
 
   async function sendMessage(event: FormEvent) {
     event.preventDefault();
-    if (!projectId || !message.trim() || context?.status === "approved") return;
-
-    setBusy(true);
-    setError(null);
+    if (!project || !message.trim()) return;
+    setBusy(true); setError("");
     try {
-      const next = await api<DiscoveryContext>("/api/v1/business-discovery/message", {
-        method: "POST",
-        body: JSON.stringify({ project_id: projectId, message: message.trim() }),
+      const c = await api<DiscoveryContext>("/api/v1/business-discovery/message", {
+        method: "POST", body: JSON.stringify({ project_id: project.id, message: message.trim() }),
       });
-      setContext(next);
-      setMessage("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to send message");
-    } finally {
-      setBusy(false);
-    }
+      setContext(c); setMessage("");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to update discovery"); }
+    finally { setBusy(false); }
   }
 
-  async function approve() {
-    if (!projectId) return;
-    setBusy(true);
-    setError(null);
+  async function approveDiscovery() {
+    if (!project) return;
+    setBusy(true); setError("");
     try {
-      const result = await api<{ context: DiscoveryContext }>(
-        `/api/v1/business-discovery/approve/${projectId}`,
-        { method: "POST" },
-      );
-      setContext(result.context);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to approve discovery");
-    } finally {
-      setBusy(false);
-    }
+      const result = await api<{ context: DiscoveryContext }>(`/api/v1/business-discovery/approve/${project.id}`, { method: "POST" });
+      setContext(result.context); setStage("strategy");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to approve discovery"); }
+    finally { setBusy(false); }
   }
 
-  if (!projectId || !context) {
-    return (
-      <main className="shell">
-        <div className="eyebrow">AWE Studio · Genesis 0.1.0</div>
-        <h1>Understand the business before building the website.</h1>
-        <p className="lede">
-          Start a project and let AWE progressively structure the business knowledge
-          that will drive every downstream website capability.
-        </p>
-        <form className="card" onSubmit={createProject}>
-          <label htmlFor="project-name">Project name</label>
-          <input
-            id="project-name"
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
-            maxLength={120}
-            required
-          />
-          <button disabled={busy}>{busy ? "Starting…" : "Start Business Discovery"}</button>
-          {error && <p className="error">{error}</p>}
-        </form>
-        <style>{styles}</style>
-      </main>
-    );
+  async function generateStrategy() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const s = await api<Strategy>(`/api/v1/website-strategy/generate?project_id=${project.id}`, { method: "POST" });
+      setStrategy(s);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to generate strategy"); }
+    finally { setBusy(false); }
   }
 
-  const knowledge = context.knowledge;
-  const completeness = Math.round(context.completeness_score * 100);
-  const locked = context.status === "approved";
+  async function approveStrategy() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const s = await api<Strategy>(`/api/v1/website-strategy/${project.id}/approve`, { method: "POST" });
+      setStrategy(s); setStage("design");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to approve strategy"); }
+    finally { setBusy(false); }
+  }
+
+  async function reviseStrategy(event: FormEvent) {
+    event.preventDefault();
+    if (!project || !feedback.trim()) return;
+    setBusy(true); setError("");
+    try {
+      const s = await api<Strategy>(`/api/v1/website-strategy/${project.id}/revise`, { method: "POST", body: JSON.stringify({ feedback: feedback.trim() }) });
+      setStrategy(s); setFeedback("");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to revise strategy"); }
+    finally { setBusy(false); }
+  }
 
   return (
     <main className="shell">
-      <header className="header">
-        <div>
-          <div className="eyebrow">AWE Studio · Business Discovery</div>
-          <h1>Build understanding first.</h1>
-        </div>
-        <div className={`status status-${context.status}`}>
-          {context.status.replace("_", " ")}
-        </div>
+      <header className="topbar">
+        <div><span className="eyebrow">AWE Studio</span><strong>Genesis</strong></div>
+        {project && <span className="project-chip">{project.name}</span>}
       </header>
 
-      <section className="grid">
-        <div className="card conversation">
-          <div className="card-title">
-            <div>
-              <h2>Discovery conversation</h2>
-              <p>AWE captures structured knowledge from what you tell it.</p>
-            </div>
-            <span>{completeness}% complete</span>
-          </div>
-
-          <div className="messages">
-            {context.source_messages.length === 0 ? (
-              <p className="muted">Tell AWE about the business, what it does and what the website needs to achieve.</p>
-            ) : (
-              context.source_messages.map((item, index) => (
-                <div className="message" key={`${item}-${index}`}>{item}</div>
-              ))
-            )}
-          </div>
-
-          {!locked && context.status !== "awaiting_approval" && (
-            <form className="composer" onSubmit={sendMessage}>
-              <textarea
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder="e.g. We are a marketing agency called Northstar. Our main goal is to generate qualified leads."
-                rows={4}
-                maxLength={10000}
-              />
-              <button disabled={busy || !message.trim()}>{busy ? "Processing…" : "Add to discovery"}</button>
-            </form>
-          )}
-
-          {context.status === "awaiting_approval" && (
-            <div className="approval">
-              <div>
-                <strong>Discovery is ready for review.</strong>
-                <p>Review the structured knowledge on the right before approving it for downstream capabilities.</p>
-              </div>
-              <button onClick={approve} disabled={busy}>{busy ? "Approving…" : "Approve Discovery"}</button>
-            </div>
-          )}
-
-          {locked && <div className="approved">Approved context is immutable. Downstream capabilities can now consume it.</div>}
-          {error && <p className="error">{error}</p>}
-        </div>
-
-        <aside className="card knowledge">
-          <div className="card-title">
-            <div>
-              <h2>Business knowledge</h2>
-              <p>Structured context extracted from the conversation.</p>
-            </div>
-          </div>
-
-          <Field label="Business name" value={knowledge.business_name.value} />
-          <Field label="Industry" value={knowledge.industry.value} />
-          <Field label="Goals" value={knowledge.goals.map((goal) => goal.value).filter(Boolean).join(", ")} />
-          <Field label="Audience" value={knowledge.audience.map((item) => item.value).filter(Boolean).join(", ")} />
-          <Field label="Value proposition" value={knowledge.value_proposition.value} />
-
-          {context.open_questions.length > 0 && (
-            <div className="questions">
-              <span>Open question</span>
-              {context.open_questions.map((question) => <p key={question}>{question}</p>)}
-            </div>
-          )}
-        </aside>
+      <section className="hero">
+        <span className="eyebrow">AI-native website engineering</span>
+        <h1>Turn business knowledge into an engineered digital experience.</h1>
+        <p>AWE moves from understanding to strategy, design and eventually implementation — with evaluation and human approval at every important boundary.</p>
       </section>
-      <style>{styles}</style>
+
+      <nav className="pipeline" aria-label="AWE capability pipeline">
+        {[ ["discovery", "01", "Discovery"], ["strategy", "02", "Strategy"], ["design", "03", "Design"] ].map(([key, number, label]) => (
+          <button key={key} className={stage === key ? "active" : ""} onClick={() => setStage(key as Stage)} disabled={!project || (key === "strategy" && context?.status !== "approved") || (key === "design" && strategy?.status !== "approved")}>
+            <span>{number}</span>{label}
+          </button>
+        ))}
+      </nav>
+
+      {error && <div className="error">{error}</div>}
+
+      {!project ? (
+        <section className="card create-card">
+          <div><span className="eyebrow">Start a project</span><h2>What are we building?</h2><p>Create a project and AWE will begin with Business Discovery.</p></div>
+          <form onSubmit={createProject} className="inline-form">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme Architecture Studio" maxLength={120} />
+            <button className="primary" disabled={busy || !name.trim()}>{busy ? "Starting…" : "Start with AWE"}</button>
+          </form>
+        </section>
+      ) : stage === "discovery" ? (
+        <section className="grid">
+          <div className="card conversation">
+            <div className="section-heading"><div><span className="eyebrow">CAP-001</span><h2>Business Discovery</h2></div><span className={`status ${context?.status}`}>{context?.status?.replace("_", " ")}</span></div>
+            <div className="messages">
+              {(context?.source_messages || []).map((item, i) => <div className="message user" key={`${item}-${i}`}>{item}</div>)}
+              {context?.open_questions?.map((item, i) => <div className="message awe" key={`${item}-${i}`}>AWE needs to know: {item}</div>)}
+              {!context?.source_messages.length && <div className="empty">Tell AWE about the business, its market and what the website needs to achieve.</div>}
+            </div>
+            {context?.status !== "approved" && <form onSubmit={sendMessage} className="composer"><textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Tell AWE what matters about the business…" rows={4} /><button className="primary" disabled={busy || !message.trim()}>{busy ? "Thinking…" : "Continue discovery"}</button></form>}
+            {context?.status === "awaiting_approval" && <button className="approve" onClick={approveDiscovery} disabled={busy}>{busy ? "Approving…" : "Approve Business Discovery"}</button>}
+          </div>
+          <aside className="card side-panel"><span className="eyebrow">Knowledge captured</span><div className="score"><Score value={context?.completeness_score || 0} /><span>completeness</span></div>{knowledgeSummary.map(([key, value]) => <div className="fact" key={key}><small>{key}</small><p>{value}</p></div>)}{context?.open_questions?.length ? <div className="finding"><strong>Still needed</strong><ul>{context.open_questions.map((q) => <li key={q}>{q}</li>)}</ul></div> : null}</aside>
+        </section>
+      ) : stage === "strategy" ? (
+        <section className="card strategy">
+          <div className="section-heading"><div><span className="eyebrow">CAP-002</span><h2>Website Strategy</h2><p>Derived from the approved Business Discovery context.</p></div>{strategy && <span className={`status ${strategy.status}`}>{strategy.status.replaceAll("_", " ")}</span>}</div>
+          {!strategy ? <div className="empty large"><p>AWE is ready to turn the approved business context into a website strategy.</p><button className="primary" onClick={generateStrategy} disabled={busy}>{busy ? "Generating…" : "Generate Strategy"}</button></div> : <>
+            <div className="metrics">{[["Overall", strategy.evaluation.overall], ["Completeness", strategy.evaluation.completeness], ["Alignment", strategy.evaluation.business_alignment], ["Traceability", strategy.evaluation.traceability], ["Actionability", strategy.evaluation.actionability]].map(([label, value]) => <div key={label as string}><small>{label}</small><Score value={value as number} /></div>)}</div>
+            <div className="strategy-grid"><div><h3>Positioning</h3><p>{strategy.content.positioning}</p><h3>Key messages</h3><ul>{strategy.content.key_messages.map((x) => <li key={x}>{x}</li>)}</ul><h3>Tone</h3><div className="tags">{strategy.content.tone.map((x) => <span key={x}>{x}</span>)}</div></div><div><h3>Information architecture</h3><div className="pages">{strategy.sitemap.map((page) => <div key={page.path}><strong>{page.name}</strong><code>{page.path}</code><p>{page.objective}</p></div>)}</div></div></div>
+            {strategy.evaluation.findings.length > 0 && <div className="finding"><strong>Evaluation findings</strong><ul>{strategy.evaluation.findings.map((x) => <li key={x}>{x}</li>)}</ul></div>}
+            {strategy.status !== "approved" && <div className="actions"><form onSubmit={reviseStrategy} className="inline-form"><input value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Request a strategic change, e.g. CTA: Book a consultation" /><button disabled={busy || !feedback.trim()}>Revise</button></form>{strategy.evaluation.ready && <button className="approve" onClick={approveStrategy} disabled={busy}>{busy ? "Approving…" : "Approve Strategy"}</button>}</div>}
+          </>}
+        </section>
+      ) : (
+        <section className="card large empty"><span className="eyebrow">CAP-003</span><h2>Brand & Design Direction</h2><p>The next capability consumes the approved Website Strategy. The backend contract is already in place; Studio integration is the next product increment.</p><button className="primary" onClick={() => setStage("strategy")}>Review Strategy</button></section>
+      )}
+
+      <footer>AWE · Capability-driven · API-first · Human approval by design</footer>
+      <style jsx global>{`
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f7f7f4;color:#151515;font-family:Arial,Helvetica,sans-serif}.shell{max-width:1180px;margin:0 auto;padding:28px 28px 64px}.topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:28px;border-bottom:1px solid #ddd}.topbar>div{display:flex;gap:10px;align-items:center}.project-chip,.status,.tags span{border:1px solid #d7d7d2;border-radius:999px;padding:7px 12px;font-size:12px;background:#fff}.hero{padding:70px 0 45px;max-width:850px}.eyebrow{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:#6a6a64}.hero h1{font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-3px;margin:18px 0}.hero p{font-size:18px;line-height:1.65;color:#555;max-width:720px}.pipeline{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 24px}.pipeline button{border:1px solid #ddd;background:#fff;padding:16px;text-align:left;border-radius:12px;cursor:pointer}.pipeline button span{display:block;font-size:11px;color:#888;margin-bottom:8px}.pipeline button.active{border-color:#111;background:#111;color:#fff}.pipeline button:disabled{opacity:.4;cursor:not-allowed}.card{background:#fff;border:1px solid #ddd;border-radius:18px;padding:28px}.create-card{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center}.card h2{font-size:30px;margin:8px 0}.card p{color:#666;line-height:1.6}.grid{display:grid;grid-template-columns:1.6fr .8fr;gap:18px}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px}.status{color:#555;text-transform:capitalize}.status.approved{background:#e8f4e8;border-color:#b7d8b7}.status.awaiting_approval,.status.ready_for_review{background:#f5f0df}.messages{min-height:260px;border:1px solid #e4e4df;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:16px}.message{padding:13px 15px;border-radius:12px;max-width:80%;line-height:1.5}.message.user{align-self:flex-end;background:#111;color:#fff}.message.awe{align-self:flex-start;background:#f0f0ec}.empty{color:#777;padding:30px;text-align:center}.large{min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center}.composer textarea,input{width:100%;border:1px solid #ccc;border-radius:10px;padding:13px;font:inherit;background:#fff}.composer{display:grid;gap:10px}.inline-form{display:flex;gap:10px}.inline-form input{flex:1}.button,button{font:inherit}.primary,.approve,.actions button{border:0;border-radius:10px;padding:12px 16px;cursor:pointer;background:#111;color:#fff}.primary:disabled,.approve:disabled,button:disabled{opacity:.45;cursor:not-allowed}.approve{margin-top:12px;width:100%}.side-panel .score{padding:18px 0;border-bottom:1px solid #eee}.score strong{font-size:40px;display:block}.score span{font-size:12px;color:#777}.fact{padding:12px 0;border-bottom:1px solid #eee}.fact small{color:#888}.fact p{margin:5px 0;color:#222}.finding{margin-top:18px;padding:16px;border-radius:12px;background:#f5f3eb}.finding ul{margin:10px 0 0;padding-left:20px;line-height:1.7}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:20px 0}.metrics>div{padding:15px;background:#f6f6f2;border-radius:12px}.metrics strong{font-size:24px;display:block;margin-top:7px}.strategy-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:35px;margin-top:25px}.strategy-grid h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-top:22px}.pages{display:grid;gap:10px}.pages>div{border:1px solid #e3e3df;border-radius:10px;padding:15px}.pages code{float:right;color:#888}.pages p{margin-bottom:0}.tags{display:flex;gap:6px;flex-wrap:wrap}.actions{display:flex;gap:10px;align-items:center;margin-top:22px}.actions .inline-form{flex:1}.actions .approve{width:auto;margin:0}.error{margin:14px 0;padding:13px 15px;background:#f8e8e8;border:1px solid #e3bcbc;border-radius:10px;color:#7d2929}footer{padding:40px 0 0;color:#888;font-size:12px}@media(max-width:800px){.create-card,.grid,.strategy-grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.pipeline{grid-template-columns:1fr}.inline-form,.actions{flex-direction:column}.hero h1{letter-spacing:-2px}.actions .approve{width:100%}}
+      `}</style>
     </main>
   );
 }
-
-function Field({ label, value }: { label: string; value: string | null }) {
-  return (
-    <div className="field">
-      <span>{label}</span>
-      <strong className={value ? "filled" : "empty"}>{value || "Not captured yet"}</strong>
-    </div>
-  );
-}
-
-const styles = `
-  * { box-sizing: border-box; }
-  body { margin: 0; background: #f7f7f4; color: #161616; font-family: Arial, Helvetica, sans-serif; }
-  button, input, textarea { font: inherit; }
-  .shell { max-width: 1180px; margin: 0 auto; padding: 56px 24px 80px; }
-  .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #666; }
-  h1 { max-width: 820px; margin: 18px 0 12px; font-size: clamp(38px, 6vw, 68px); line-height: .98; letter-spacing: -.045em; }
-  .lede { max-width: 720px; margin: 0 0 36px; color: #555; font-size: 19px; line-height: 1.55; }
-  .header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 36px; }
-  .header h1 { margin-bottom: 0; font-size: clamp(34px, 5vw, 56px); }
-  .status { padding: 9px 12px; border-radius: 999px; background: #e7e7e2; font-size: 12px; text-transform: capitalize; white-space: nowrap; }
-  .status-awaiting_approval { background: #eee7cf; }
-  .status-approved { background: #dce9df; }
-  .grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .8fr); gap: 20px; }
-  .card { background: white; border: 1px solid #deded8; border-radius: 18px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,.035); }
-  .card-title { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 22px; }
-  h2 { margin: 0 0 5px; font-size: 18px; }
-  .card-title p { margin: 0; color: #777; font-size: 13px; line-height: 1.45; }
-  .card-title > span { color: #666; font-size: 12px; white-space: nowrap; }
-  .messages { min-height: 180px; display: flex; flex-direction: column; gap: 10px; padding: 4px 0 20px; }
-  .message { align-self: flex-end; max-width: 86%; padding: 12px 14px; border-radius: 14px 14px 4px 14px; background: #161616; color: white; line-height: 1.5; font-size: 14px; }
-  .muted { color: #888; line-height: 1.6; font-size: 14px; }
-  .composer textarea { width: 100%; resize: vertical; min-height: 110px; padding: 13px; border: 1px solid #d4d4ce; border-radius: 12px; outline: none; }
-  .composer textarea:focus, input:focus { border-color: #555; }
-  button { border: 0; border-radius: 10px; background: #161616; color: white; padding: 12px 16px; cursor: pointer; }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  .composer button { margin-top: 10px; }
-  .approval { display: flex; justify-content: space-between; gap: 18px; align-items: center; padding-top: 18px; border-top: 1px solid #eee; }
-  .approval p { margin: 5px 0 0; color: #777; font-size: 13px; line-height: 1.5; }
-  .approved { margin-top: 16px; padding: 12px; border-radius: 10px; background: #edf4ee; color: #35563d; font-size: 13px; }
-  .field { padding: 15px 0; border-top: 1px solid #eee; }
-  .field span { display: block; color: #777; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
-  .field strong { font-size: 14px; line-height: 1.45; }
-  .empty { color: #aaa; font-weight: 400; }
-  .questions { margin-top: 18px; padding: 14px; background: #f7f4e9; border-radius: 12px; }
-  .questions span { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #806f35; }
-  .questions p { margin: 7px 0 0; font-size: 13px; line-height: 1.45; }
-  .error { color: #a52b2b; font-size: 13px; margin-bottom: 0; }
-  label { display: block; margin-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #666; }
-  input { width: 100%; padding: 13px; border: 1px solid #d4d4ce; border-radius: 10px; margin-bottom: 12px; outline: none; }
-  @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } .header { align-items: flex-start; flex-direction: column; } .approval { align-items: flex-start; flex-direction: column; } }
-`;

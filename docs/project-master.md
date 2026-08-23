@@ -446,6 +446,12 @@ Deployment
 
 ------------------------------------------------------------------------
 
+## 16.1 CAP-002 Studio experience
+
+The Studio now exposes the first coherent Discovery → Strategy product flow. After Business Discovery is explicitly approved, the user can generate a Website Strategy, inspect its evaluation dimensions, request a revision, and approve the resulting strategy before CAP-003.
+
+Detailed implementation reference: [CAP-002 Studio experience](cap-002-studio.md).
+
 ## 16. CAP-001 experience
 
 A user can start naturally:
@@ -1550,40 +1556,3 @@ Repository CI
 
 This deployment issue therefore remains part of CAP-003 history and is not treated as an unrelated infrastructure incident.
 \n\n## CAP-003 deployment hardening follow-up\n\nThe first deployment-hardening patch upgraded Next.js/React and fixed the extension-based ESLint import, but local validation exposed two further issues:\n\n1. pnpm 10 ignores the `pnpm` settings field in `package.json`; `onlyBuiltDependencies` therefore belongs in `pnpm-workspace.yaml`.\n2. With `eslint-config-next@15.5.21`, the imported `core-web-vitals.js` value was not iterable in this repository's ESLint runtime. The configuration was therefore made explicit through `@next/eslint-plugin-next`, preserving the same Next.js recommended/Core Web Vitals rules without depending on that module shape.\n3. `pnpm test` previously invoked `pytest` without provisioning Python dependencies. The API test command is now explicit and CI provisions Python 3.12 plus `apps/api/requirements.txt`.\n\nThis reinforces the release principle: local developer validation, CI validation and Vercel validation must exercise the same dependency/runtime assumptions.\n
-# CAP-001 Product Slice Update — Studio Experience
-
-The next CAP-001 product increment connects the existing Business Discovery API
-contract to AWE Studio as a real user-facing vertical slice.
-
-## What is now exercised end-to-end
-
-```text
-AWE Studio
-   ↓
-Create project
-   ↓
-Start Business Discovery
-   ↓
-Conversational messages
-   ↓
-Structured DiscoveryContext
-   ↓
-Completeness / open questions
-   ↓
-Human review
-   ↓
-Approval
-   ↓
-Immutable approved context
-```
-
-Studio uses `NEXT_PUBLIC_API_URL` to communicate with the API. The API now
-allows the local Studio origins used by the development and Docker setup.
-
-The detailed capability contract and remaining CAP-001 work are documented in
-[`docs/cap-001.md`](cap-001.md).
-
-This increment intentionally does not introduce a live model provider. The
-existing deterministic gateway remains the controlled development baseline so
-that the product interaction can be validated independently of provider
-availability.
