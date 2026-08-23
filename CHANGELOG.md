@@ -1,3 +1,10 @@
+## Unreleased
+
+### Added
+- CAP-003 Studio integration for Brand & Design Direction review and approval.
+- Studio persistence/reload of CAP-003 state.
+- Visual direction presentation covering palette, typography, imagery, components, accessibility and rationale.
+
 # Changelog
 
 ## CAP-003 v0.1.1 — Deployment Hardening

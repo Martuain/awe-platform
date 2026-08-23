@@ -1,3 +1,10 @@
+## Current product status
+
+- CAP-001 Business Discovery: implemented and evaluated.
+- CAP-002 Website Strategy: implemented with human approval.
+- CAP-003 Brand & Design Direction: backend capability implemented; Studio review and approval flow now integrated.
+- Next major milestone: end-to-end website specification and generation.
+
 # AWE Platform / AWE Studio --- Master Project Record
 
 **Genesis baseline:** v0.1.1 --- frozen\

@@ -27,6 +27,19 @@ type Strategy = {
   rationale: string[];
   evaluation: { completeness: number; business_alignment: number; traceability: number; actionability: number; overall: number; findings: string[]; ready: boolean };
 };
+type DesignDirection = {
+  version: number;
+  status: "draft" | "ready_for_review" | "approved";
+  brand_attributes: string[];
+  visual_principles: string[];
+  color_palette: { primary: string; secondary: string; accent: string; background: string; text: string };
+  typography: { heading_style: string; body_style: string; hierarchy: string };
+  imagery_direction: string[];
+  component_direction: string[];
+  accessibility_requirements: string[];
+  rationale: string[];
+  source_strategy_version: number;
+};
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -53,6 +66,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [context, setContext] = useState<DiscoveryContext | null>(null);
   const [strategy, setStrategy] = useState<Strategy | null>(null);
+  const [design, setDesign] = useState<DesignDirection | null>(null);
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -70,7 +84,17 @@ export default function Home() {
             try {
               const s = await api<Strategy>(`/api/v1/website-strategy/${p.id}`);
               setStrategy(s);
-              setStage("strategy");
+              if (s.status === "approved") {
+                try {
+                  const d = await api<DesignDirection>(`/api/v1/brand-design/${p.id}`);
+                  setDesign(d);
+                  setStage("design");
+                } catch {
+                  setStage("strategy");
+                }
+              } else {
+                setStage("strategy");
+              }
             } catch {
               setStage("strategy");
             }
@@ -149,6 +173,26 @@ export default function Home() {
     finally { setBusy(false); }
   }
 
+  async function generateDesign() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const d = await api<DesignDirection>(`/api/v1/brand-design/generate?project_id=${project.id}`, { method: "POST" });
+      setDesign(d);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to generate design direction"); }
+    finally { setBusy(false); }
+  }
+
+  async function approveDesign() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const d = await api<DesignDirection>(`/api/v1/brand-design/${project.id}/approve`, { method: "POST" });
+      setDesign(d);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to approve design direction"); }
+    finally { setBusy(false); }
+  }
+
   async function reviseStrategy(event: FormEvent) {
     event.preventDefault();
     if (!project || !feedback.trim()) return;
@@ -216,12 +260,36 @@ export default function Home() {
           </>}
         </section>
       ) : (
-        <section className="card large empty"><span className="eyebrow">CAP-003</span><h2>Brand & Design Direction</h2><p>The next capability consumes the approved Website Strategy. The backend contract is already in place; Studio integration is the next product increment.</p><button className="primary" onClick={() => setStage("strategy")}>Review Strategy</button></section>
+        <section className="card design">
+          <div className="section-heading"><div><span className="eyebrow">CAP-003</span><h2>Brand & Design Direction</h2><p>Derived from the approved Website Strategy. This is the visual and interaction brief AWE will use before composing the website.</p></div>{design && <span className={`status ${design.status}`}>{design.status.replaceAll("_", " ")}</span>}</div>
+          {!design ? <div className="empty large"><p>AWE is ready to translate the approved strategy into a reviewable design direction.</p><button className="primary" onClick={generateDesign} disabled={busy}>{busy ? "Generating…" : "Generate Design Direction"}</button></div> : <>
+            <div className="design-summary">
+              <div><small>Source strategy</small><strong>v{design.source_strategy_version}</strong></div>
+              <div><small>Brand attributes</small><div className="tags">{design.brand_attributes.map((x) => <span key={x}>{x}</span>)}</div></div>
+              <div><small>Accessibility</small><strong>Required</strong></div>
+              <div><small>Responsive</small><strong>First-class</strong></div>
+            </div>
+            <div className="design-grid">
+              <div>
+                <h3>Visual principles</h3><ul>{design.visual_principles.map((x) => <li key={x}>{x}</li>)}</ul>
+                <h3>Color direction</h3><div className="palette">{Object.entries(design.color_palette).map(([name, value]) => <div key={name}><span></span><small>{name}</small><strong>{value}</strong></div>)}</div>
+                <h3>Typography</h3><div className="fact"><small>Headings</small><p>{design.typography.heading_style}</p></div><div className="fact"><small>Body</small><p>{design.typography.body_style}</p></div><div className="fact"><small>Hierarchy</small><p>{design.typography.hierarchy}</p></div>
+              </div>
+              <div>
+                <h3>Imagery direction</h3><ul>{design.imagery_direction.map((x) => <li key={x}>{x}</li>)}</ul>
+                <h3>Component direction</h3><ul>{design.component_direction.map((x) => <li key={x}>{x}</li>)}</ul>
+                <h3>Accessibility requirements</h3><ul>{design.accessibility_requirements.map((x) => <li key={x}>{x}</li>)}</ul>
+              </div>
+            </div>
+            <div className="finding"><strong>Why AWE chose this direction</strong><ul>{design.rationale.map((x) => <li key={x}>{x}</li>)}</ul></div>
+            {design.status !== "approved" && <div className="actions"><button className="secondary" onClick={() => setStage("strategy")}>Back to Strategy</button><button className="approve" onClick={approveDesign} disabled={busy}>{busy ? "Approving…" : "Approve Design Direction"}</button></div>}
+          </>}
+        </section>
       )}
 
       <footer>AWE · Capability-driven · API-first · Human approval by design</footer>
       <style jsx global>{`
-        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f7f7f4;color:#151515;font-family:Arial,Helvetica,sans-serif}.shell{max-width:1180px;margin:0 auto;padding:28px 28px 64px}.topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:28px;border-bottom:1px solid #ddd}.topbar>div{display:flex;gap:10px;align-items:center}.project-chip,.status,.tags span{border:1px solid #d7d7d2;border-radius:999px;padding:7px 12px;font-size:12px;background:#fff}.hero{padding:70px 0 45px;max-width:850px}.eyebrow{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:#6a6a64}.hero h1{font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-3px;margin:18px 0}.hero p{font-size:18px;line-height:1.65;color:#555;max-width:720px}.pipeline{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 24px}.pipeline button{border:1px solid #ddd;background:#fff;padding:16px;text-align:left;border-radius:12px;cursor:pointer}.pipeline button span{display:block;font-size:11px;color:#888;margin-bottom:8px}.pipeline button.active{border-color:#111;background:#111;color:#fff}.pipeline button:disabled{opacity:.4;cursor:not-allowed}.card{background:#fff;border:1px solid #ddd;border-radius:18px;padding:28px}.create-card{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center}.card h2{font-size:30px;margin:8px 0}.card p{color:#666;line-height:1.6}.grid{display:grid;grid-template-columns:1.6fr .8fr;gap:18px}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px}.status{color:#555;text-transform:capitalize}.status.approved{background:#e8f4e8;border-color:#b7d8b7}.status.awaiting_approval,.status.ready_for_review{background:#f5f0df}.messages{min-height:260px;border:1px solid #e4e4df;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:16px}.message{padding:13px 15px;border-radius:12px;max-width:80%;line-height:1.5}.message.user{align-self:flex-end;background:#111;color:#fff}.message.awe{align-self:flex-start;background:#f0f0ec}.empty{color:#777;padding:30px;text-align:center}.large{min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center}.composer textarea,input{width:100%;border:1px solid #ccc;border-radius:10px;padding:13px;font:inherit;background:#fff}.composer{display:grid;gap:10px}.inline-form{display:flex;gap:10px}.inline-form input{flex:1}.button,button{font:inherit}.primary,.approve,.actions button{border:0;border-radius:10px;padding:12px 16px;cursor:pointer;background:#111;color:#fff}.primary:disabled,.approve:disabled,button:disabled{opacity:.45;cursor:not-allowed}.approve{margin-top:12px;width:100%}.side-panel .score{padding:18px 0;border-bottom:1px solid #eee}.score strong{font-size:40px;display:block}.score span{font-size:12px;color:#777}.fact{padding:12px 0;border-bottom:1px solid #eee}.fact small{color:#888}.fact p{margin:5px 0;color:#222}.finding{margin-top:18px;padding:16px;border-radius:12px;background:#f5f3eb}.finding ul{margin:10px 0 0;padding-left:20px;line-height:1.7}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:20px 0}.metrics>div{padding:15px;background:#f6f6f2;border-radius:12px}.metrics strong{font-size:24px;display:block;margin-top:7px}.strategy-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:35px;margin-top:25px}.strategy-grid h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-top:22px}.pages{display:grid;gap:10px}.pages>div{border:1px solid #e3e3df;border-radius:10px;padding:15px}.pages code{float:right;color:#888}.pages p{margin-bottom:0}.tags{display:flex;gap:6px;flex-wrap:wrap}.actions{display:flex;gap:10px;align-items:center;margin-top:22px}.actions .inline-form{flex:1}.actions .approve{width:auto;margin:0}.error{margin:14px 0;padding:13px 15px;background:#f8e8e8;border:1px solid #e3bcbc;border-radius:10px;color:#7d2929}footer{padding:40px 0 0;color:#888;font-size:12px}@media(max-width:800px){.create-card,.grid,.strategy-grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.pipeline{grid-template-columns:1fr}.inline-form,.actions{flex-direction:column}.hero h1{letter-spacing:-2px}.actions .approve{width:100%}}
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f7f7f4;color:#151515;font-family:Arial,Helvetica,sans-serif}.shell{max-width:1180px;margin:0 auto;padding:28px 28px 64px}.topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:28px;border-bottom:1px solid #ddd}.topbar>div{display:flex;gap:10px;align-items:center}.project-chip,.status,.tags span{border:1px solid #d7d7d2;border-radius:999px;padding:7px 12px;font-size:12px;background:#fff}.hero{padding:70px 0 45px;max-width:850px}.eyebrow{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:#6a6a64}.hero h1{font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-3px;margin:18px 0}.hero p{font-size:18px;line-height:1.65;color:#555;max-width:720px}.pipeline{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 24px}.pipeline button{border:1px solid #ddd;background:#fff;padding:16px;text-align:left;border-radius:12px;cursor:pointer}.pipeline button span{display:block;font-size:11px;color:#888;margin-bottom:8px}.pipeline button.active{border-color:#111;background:#111;color:#fff}.pipeline button:disabled{opacity:.4;cursor:not-allowed}.card{background:#fff;border:1px solid #ddd;border-radius:18px;padding:28px}.create-card{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center}.card h2{font-size:30px;margin:8px 0}.card p{color:#666;line-height:1.6}.grid{display:grid;grid-template-columns:1.6fr .8fr;gap:18px}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px}.status{color:#555;text-transform:capitalize}.status.approved{background:#e8f4e8;border-color:#b7d8b7}.status.awaiting_approval,.status.ready_for_review{background:#f5f0df}.messages{min-height:260px;border:1px solid #e4e4df;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:16px}.message{padding:13px 15px;border-radius:12px;max-width:80%;line-height:1.5}.message.user{align-self:flex-end;background:#111;color:#fff}.message.awe{align-self:flex-start;background:#f0f0ec}.empty{color:#777;padding:30px;text-align:center}.large{min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center}.composer textarea,input{width:100%;border:1px solid #ccc;border-radius:10px;padding:13px;font:inherit;background:#fff}.composer{display:grid;gap:10px}.inline-form{display:flex;gap:10px}.inline-form input{flex:1}.button,button{font:inherit}.primary,.approve,.actions button{border:0;border-radius:10px;padding:12px 16px;cursor:pointer;background:#111;color:#fff}.primary:disabled,.approve:disabled,button:disabled{opacity:.45;cursor:not-allowed}.approve{margin-top:12px;width:100%}.side-panel .score{padding:18px 0;border-bottom:1px solid #eee}.score strong{font-size:40px;display:block}.score span{font-size:12px;color:#777}.fact{padding:12px 0;border-bottom:1px solid #eee}.fact small{color:#888}.fact p{margin:5px 0;color:#222}.finding{margin-top:18px;padding:16px;border-radius:12px;background:#f5f3eb}.finding ul{margin:10px 0 0;padding-left:20px;line-height:1.7}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:20px 0}.metrics>div{padding:15px;background:#f6f6f2;border-radius:12px}.metrics strong{font-size:24px;display:block;margin-top:7px}.strategy-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:35px;margin-top:25px}.strategy-grid h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-top:22px}.pages{display:grid;gap:10px}.pages>div{border:1px solid #e3e3df;border-radius:10px;padding:15px}.pages code{float:right;color:#888}.pages p{margin-bottom:0}.tags{display:flex;gap:6px;flex-wrap:wrap}.actions{display:flex;gap:10px;align-items:center;margin-top:22px}.actions .inline-form{flex:1}.actions .approve{width:auto;margin:0}.error{margin:14px 0;padding:13px 15px;background:#f8e8e8;border:1px solid #e3bcbc;border-radius:10px;color:#7d2929}footer{padding:40px 0 0;color:#888;font-size:12px}.design-summary{display:grid;grid-template-columns:.7fr 1.5fr .8fr .8fr;gap:8px;margin:20px 0}.design-summary>div{padding:16px;background:#f6f6f2;border-radius:12px}.design-summary small{display:block;color:#888;margin-bottom:7px}.design-summary strong{font-size:18px}.design-grid{display:grid;grid-template-columns:1fr 1fr;gap:35px;margin-top:25px}.design-grid h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:24px 0 10px}.design-grid ul{margin:0;padding-left:20px;line-height:1.7;color:#444}.palette{display:grid;gap:8px}.palette>div{display:grid;grid-template-columns:18px 100px 1fr;gap:10px;align-items:center;padding:10px;border:1px solid #e3e3df;border-radius:10px}.palette span{width:18px;height:18px;border-radius:50%;background:#d8d8d2;border:1px solid #bbb}.palette small{color:#777;text-transform:capitalize}.palette strong{font-size:13px;font-weight:500}.secondary{border:1px solid #ccc;border-radius:10px;padding:12px 16px;cursor:pointer;background:#fff;color:#222}.actions .secondary{margin:0}.actions .approve{width:auto;margin:0}.design .finding{margin-top:24px}@media(max-width:800px){.create-card,.grid,.strategy-grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.pipeline{grid-template-columns:1fr}.inline-form,.actions{flex-direction:column}.hero h1{letter-spacing:-2px}.actions .approve{width:100%}}
       `}</style>
     </main>
   );
