@@ -66,6 +66,7 @@
 - [x] Allowlisted build/runtime commands
 - [x] Network-disabled-by-default policy
 - [x] Deterministic build-plan diagnostics
-- [ ] Real isolated execution adapter
-- [ ] Disposable runtime
+- [x] Real isolated execution adapter
+- [x] Disposable build workspace
+- [ ] Long-lived disposable runtime
 - [ ] Live preview endpoint

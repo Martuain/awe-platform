@@ -1616,3 +1616,144 @@ See [`cap-005-studio.md`](./cap-005-studio.md) for the Website Generation capabi
 ## CAP-006 reference
 
 See [`cap-006-studio.md`](./cap-006-studio.md) for the Preview & Validation capability. CAP-006 validates generated project structure and provides a safe preview boundary without executing generated code inside Studio.
+
+
+---
+
+# Chronological Capability Record — CAP-001 → CAP-008
+
+This section is the canonical chronological implementation record. Each capability records what was actually proven, what was deliberately deferred, and the technology decisions that resulted from evidence. Earlier sections remain the strategic baseline; this section prevents later milestones from obscuring historical reasoning.
+
+## CAP-001 — Business Discovery
+
+**Outcome:** established the business-first product loop, structured Business Brief, provenance/assumption distinction, evaluation-before-approval and human checkpoint.
+
+**Key decision:** capability-first architecture replaces the original agent-first product abstraction. Agents remain implementation mechanisms.
+
+**Technology implication:** deterministic/mock provider testing is mandatory before live-model dependence.
+
+## CAP-002 — Website Strategy
+
+**Outcome:** consumes approved Discovery context and produces a versioned Website Strategy with information architecture, sitemap and content strategy. Deterministic structural evaluation and revision/approval workflow were added.
+
+**Key decision:** downstream capabilities cannot bypass approved upstream artifacts.
+
+**Technology implication:** persistence and evaluation abstractions are introduced only where versioning and approval actually require them.
+
+## CAP-003 — Brand & Design Direction
+
+**Outcome:** produces a reviewable design-direction artifact derived from approved strategy, including semantic visual guidance, typography direction, accessibility and responsive principles. Deployment hardening upgraded the Studio toolchain to the known-good Next.js/React/ESLint baseline.
+
+**Key decisions:** keep design semantic and deterministic before introducing visual generation infrastructure; keep approved artifacts immutable.
+
+**Technology implication:** Next.js 15.5.21, React 19.1.9, ESLint 9.39.5 and explicit ESM configuration were retained after deployment evidence.
+
+## CAP-004 — Website Specification
+
+**Outcome:** translates approved strategy and design direction into an implementation-ready Website Specification.
+
+**Key decision:** separate product intent from generated implementation. The specification is a durable handoff artifact.
+
+**Technology implication:** TypeScript/Pydantic contracts remain the boundary representation; no code execution is introduced at this stage.
+
+## CAP-005 — Website Generation
+
+**Outcome:** deterministic generation produces a concrete Next.js App Router artifact from an approved specification.
+
+**Key decision:** start with reproducible templates rather than live-model code generation.
+
+**Technology implication:** Next.js App Router is the single supported generated framework while the architecture is being proven. Additional frameworks are deferred until there is evidence of demand.
+
+## CAP-006 — Validation / Preview Boundary
+
+**Outcome:** validates generated artifacts and establishes a safe preview boundary without executing generated code inside AWE.
+
+**Key decision:** validation and preview must not become an accidental execution path.
+
+**Technology implication:** browser/UI preview is kept separate from build/runtime execution.
+
+## CAP-007 — Isolated Build Contract
+
+**Outcome:** formalized the build-plan artifact, ephemeral workspace strategy, allowlisted runtime commands and network-disabled-by-default policy. No generated code was executed.
+
+**Key decision:** define the security boundary before implementing execution.
+
+**Technology implication:** the execution substrate remains replaceable; Docker, Kubernetes jobs and microVMs were explicitly kept as implementation alternatives.
+
+## CAP-008 — Isolated Build Execution
+
+**Outcome:** implements the first real execution adapter using disposable Docker containers. Generated artifacts are materialized into a temporary workspace; dependency acquisition is constrained and lifecycle scripts are disabled; the actual Next.js build runs with Docker networking disabled and resource limits.
+
+**Key decision:** Docker is selected as the smallest practical substrate that proves the execution contract locally and in CI. It is not frozen as the ultimate production sandbox.
+
+**Deferred:** long-lived preview runtime, public preview URL, arbitrary npm dependency support, production multi-tenant isolation, deployment.
+
+---
+
+# Technology Decision Register
+
+The project now records technology choices by evidence rather than by the original MVP plan alone. A technology is **selected** when it solves a demonstrated problem with acceptable complexity; **deferred** when the problem is real but premature; **rejected** when it violates the architecture/security requirement.
+
+| Technology / approach | Decision | Evidence / rationale | Revisit trigger |
+|---|---|---|---|
+| pnpm workspaces | Selected | Efficient monorepo dependency management; deterministic lockfile; workspace filtering | Material monorepo scale/performance issue |
+| Turborepo | Selected | Coordinates package-level lint/build/test and caches work as packages grow | Workflow complexity exceeds benefit |
+| ESLint 9 + Next rules | Selected | Catches Studio code-quality issues and integrates with the chosen Next.js line | Toolchain incompatibility or stronger lint standard |
+| Next.js App Router | Selected for generated sites | Matches current Studio stack and gives a single deterministic generation target | Customer demand for another framework |
+| React + TypeScript | Selected | Strong component model and compile-time contracts for Studio | Evidence of a materially better alternative |
+| FastAPI | Selected | Async Python API, simple typing and strong testability; already proven by CAP tests | API scale or operational constraints |
+| Pydantic | Selected | Clear typed API/domain contracts and validation | Contract model becomes insufficient |
+| SQLAlchemy | Selected / incremental | Keeps persistence replaceable and supports async relational storage without forcing DB complexity into capabilities | Persistence scale/requirements justify another layer |
+| PostgreSQL | Planned, not yet mandatory for every local capability | Durable relational persistence is appropriate for project/artifact/version data | Production persistence milestone |
+| Redis | Deferred | Useful for queues/cache/realtime, but no current capability requires it | Async jobs, distributed coordination or caching become real requirements |
+| LiteLLM / provider gateway | Deferred until live-model requirement | Provider abstraction is required, but deterministic capability proofs should precede commercial-model coupling | First production model-backed capability |
+| Host subprocess | Rejected for generated code | Insufficient isolation boundary | Never, for untrusted execution |
+| Docker | Selected for CAP-008 | Practical filesystem/network/resource controls with low operational overhead and local/CI reproducibility | Threat model requires stronger isolation |
+| Kubernetes Jobs | Deferred | Strong orchestration but premature operational complexity | Production-scale execution fleet |
+| Firecracker / microVM | Deferred | Higher-assurance isolation candidate but higher implementation complexity | Multi-tenant public execution/compliance requirements |
+| Browser-only preview | Deferred as execution mechanism | Preview is valuable, but it cannot prove the generated project builds | After build/runtime contract is stable |
+| Celery | Deferred | No demonstrated queue workload yet | Long-running distributed jobs require it |
+| Docker Compose | Selected for local supporting services | Low-friction local orchestration | Production orchestration requirement |
+
+## Decision discipline
+
+For every new technology the project should record:
+
+1. the problem it solves;
+2. why the current stack cannot solve it adequately;
+3. alternatives considered;
+4. security and operational consequences;
+5. whether the decision is temporary or frozen;
+6. the evidence that would trigger a revisit.
+
+This register complements ADRs. The master records the chronological product/engineering reasoning; ADRs capture decisions that materially constrain architecture.
+
+---
+
+# Current State after CAP-008
+
+```text
+AWE Studio
+   ↓
+AWE API / Framework
+   ↓
+Approved Website Specification
+   ↓
+CAP-005 Generation
+   ↓
+CAP-006 Validation
+   ↓
+CAP-007 Build Contract
+   ↓
+CAP-008 Docker-Isolated Build
+   ↓
+[CAP-009 Runtime / Live Preview]
+   ↓
+Deployment
+```
+
+**Known-good engineering gate:** `pnpm lint && pnpm build && pnpm test` remains mandatory after each capability.
+
+**Current security rule:** generated code must never execute in the AWE host process.
+
+**Current architecture rule:** choose the smallest technology that proves the next capability; preserve migration boundaries rather than prematurely building production-scale infrastructure.

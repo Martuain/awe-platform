@@ -1,0 +1,7 @@
+{
+  "name": "@awe/api",
+  "private": true,
+  "scripts": {
+    "test": "python3 -m pytest"
+  }
+}
