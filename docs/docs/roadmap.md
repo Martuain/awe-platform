@@ -71,3 +71,7 @@
 - [ ] Long-lived disposable runtime
 - [x] Live preview endpoint
 - [x] Disposable live runtime
+
+
+## CAP-010 — Deployment Abstraction
+Provider-neutral deployment lifecycle with a deterministic local provider; permanent cloud selection deferred.

@@ -1773,3 +1773,26 @@ Deployment
 **Current security rule:** generated code must never execute in the AWE host process.
 
 **Current architecture rule:** choose the smallest technology that proves the next capability; preserve migration boundaries rather than prematurely building production-scale infrastructure.
+
+
+## CAP-010 — Deployment Abstraction
+
+**Status:** Implemented / pending repository validation.
+
+CAP-010 establishes a provider-neutral deployment contract and a deterministic
+local deployment provider. It intentionally does not freeze AWE to Vercel,
+Cloudflare, AWS, Kubernetes or another production provider.
+
+**What it proves:** a validated/buildable website can enter a versioned
+deployment lifecycle and expose deployment status and URL through a stable API.
+
+**Technology decision:** local provider + abstraction now; permanent cloud
+provider deferred until production requirements justify the choice.
+
+**Alternatives considered:** Vercel, Cloudflare, AWS, Kubernetes.
+
+**Deferred:** custom domains, DNS/TLS automation, CDN configuration, production
+secrets, multi-region deployment and automatic production promotion.
+
+See `docs/cap-010-deployment.md` and
+`docs/adr/ADR-0008-deployment-provider-abstraction.md`.
