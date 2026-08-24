@@ -212,6 +212,29 @@ class WebsiteGeneration(BaseModel):
 
 
 
+
+class DeploymentStatus(str, Enum):
+    QUEUED = "queued"
+    DEPLOYING = "deploying"
+    DEPLOYED = "deployed"
+    FAILED = "failed"
+    STOPPED = "stopped"
+
+
+class WebsiteDeployment(BaseModel):
+    project_id: UUID
+    deployment_id: UUID = Field(default_factory=uuid4)
+    generation_version: int
+    version: int = 1
+    status: DeploymentStatus = DeploymentStatus.QUEUED
+    provider: str = "local"
+    url: str | None = None
+    runtime_id: str | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    deployed_at: datetime | None = None
+    stopped_at: datetime | None = None
+
 class WebsitePreviewStatus(str, Enum):
     STARTED = "started"
     STOPPED = "stopped"

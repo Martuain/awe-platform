@@ -1796,3 +1796,51 @@ secrets, multi-region deployment and automatic production promotion.
 
 See `docs/cap-010-deployment.md` and
 `docs/adr/ADR-0008-deployment-provider-abstraction.md`.
+
+
+------------------------------------------------------------------------
+
+## CAP-011 — Deployment UX & Lifecycle
+
+**Status:** Implemented / pending repository validation.
+
+CAP-011 turns the CAP-010 deployment abstraction into a first-class product
+workflow. Deployment is now represented as a versioned artifact with explicit
+status, URL, provider, runtime reference, diagnostics and timestamps.
+
+### Lifecycle
+
+```text
+queued → deploying → deployed → stopped
+                    ↘ failed
+```
+
+### API
+
+```text
+POST /api/v1/deployments
+GET  /api/v1/deployments/{deployment_id}
+GET  /api/v1/deployments
+POST /api/v1/deployments/{deployment_id}/stop
+```
+
+### Technology decision
+
+The Studio/API talks to a provider-neutral deployment service. CAP-011 uses
+the local provider, which promotes the proven CAP-009 isolated runtime into a
+deployment lifecycle. No permanent cloud provider is selected yet.
+
+### Why this decision
+
+The product contract needs to be validated before infrastructure is frozen.
+Vercel, Cloudflare, AWS and Kubernetes remain candidates for a later hosted
+provider decision. The deployment abstraction limits vendor coupling and keeps
+Studio independent of Docker or cloud-specific APIs.
+
+### Deferred
+
+Custom domains, DNS/TLS automation, production secrets, multi-region
+deployment, autoscaling, production observability and automatic promotion.
+
+See [CAP-011 deployment UX](cap-011-deployment-ux.md) and
+[ADR-0009](adr/ADR-0009-deployment-lifecycle-ux.md).

@@ -75,3 +75,7 @@
 
 ## CAP-010 — Deployment Abstraction
 Provider-neutral deployment lifecycle with a deterministic local provider; permanent cloud selection deferred.
+
+
+## CAP-011 — Deployment UX & Lifecycle
+First-class deployment state, history, live URL and stop/redeploy lifecycle using the provider-neutral API.

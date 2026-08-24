@@ -47,3 +47,7 @@ API docs: http://localhost:8000/docs
 
 This is an implementation baseline, not a finished SaaS product.
 \n\n## Validation prerequisites\n\nThe repository contains a Python API test suite. Install the API dependencies before running the full test command:\n\n```bash\npython3 -m pip install -r apps/api/requirements.txt\npnpm build\npnpm lint\npnpm test\n```\n\nGitHub CI provisions Python automatically.\n
+
+## Current milestone
+
+**CAP-011 — Deployment UX & Lifecycle** establishes first-class deployment state, history, live URL and stop/redeploy workflow behind a provider-neutral API.

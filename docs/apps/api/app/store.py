@@ -24,6 +24,7 @@ from app.models import (
     WebsiteSpecification,
     WebsiteSpecificationStatus,
     WebsiteGeneration,
+    WebsiteDeployment,
 )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -171,6 +172,10 @@ class Repository:
     async def approve_specification(self, project_id: UUID) -> WebsiteSpecification: ...
     async def create_generation(self, generation: WebsiteGeneration) -> WebsiteGeneration: ...
     async def get_generation(self, project_id: UUID) -> WebsiteGeneration | None: ...
+    async def create_deployment(self, deployment: WebsiteDeployment) -> WebsiteDeployment: ...
+    async def get_deployment(self, deployment_id: UUID) -> WebsiteDeployment | None: ...
+    async def list_deployments(self, project_id: UUID) -> list[WebsiteDeployment]: ...
+    async def update_deployment(self, deployment: WebsiteDeployment) -> WebsiteDeployment: ...
 
 
 class InMemoryRepository(Repository):
@@ -181,6 +186,7 @@ class InMemoryRepository(Repository):
         self.designs: dict[UUID, list[BrandDesignDirection]] = {}
         self.specifications: dict[UUID, list[WebsiteSpecification]] = {}
         self.generations: dict[UUID, list[WebsiteGeneration]] = {}
+        self.deployments: dict[UUID, WebsiteDeployment] = {}
 
     async def create_project(self, name: str) -> Project:
         project = Project(name=name)
@@ -285,6 +291,21 @@ class InMemoryRepository(Repository):
     async def get_generation(self, project_id: UUID) -> WebsiteGeneration | None:
         versions = self.generations.get(project_id, [])
         return versions[-1].model_copy(deep=True) if versions else None
+
+    async def create_deployment(self, deployment: WebsiteDeployment) -> WebsiteDeployment:
+        self.deployments[deployment.deployment_id] = deployment.model_copy(deep=True)
+        return deployment
+
+    async def get_deployment(self, deployment_id: UUID) -> WebsiteDeployment | None:
+        deployment = self.deployments.get(deployment_id)
+        return deployment.model_copy(deep=True) if deployment else None
+
+    async def list_deployments(self, project_id: UUID) -> list[WebsiteDeployment]:
+        return [d.model_copy(deep=True) for d in self.deployments.values() if d.project_id == project_id]
+
+    async def update_deployment(self, deployment: WebsiteDeployment) -> WebsiteDeployment:
+        self.deployments[deployment.deployment_id] = deployment.model_copy(deep=True)
+        return deployment
 
 
 class SqlAlchemyRepository(Repository):
