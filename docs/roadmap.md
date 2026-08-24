@@ -54,5 +54,6 @@
 - [x] Approved Website Specification gate
 - [x] Next.js App Router file generation baseline
 - [x] Generation validation contract
-- [ ] Generated-project build validation
-- [ ] Preview
+- [x] Deterministic artifact validation
+- [x] Safe browser preview
+

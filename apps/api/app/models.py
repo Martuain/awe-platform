@@ -175,6 +175,21 @@ class WebsiteGenerationStatus(str, Enum):
     VALIDATED = "validated"
     FAILED = "failed"
 
+class WebsiteValidationStatus(str, Enum):
+    PASSED = "passed"
+    FAILED = "failed"
+
+
+class WebsiteValidation(BaseModel):
+    project_id: UUID
+    validation_id: UUID = Field(default_factory=uuid4)
+    generation_version: int = 0
+    status: WebsiteValidationStatus = WebsiteValidationStatus.PASSED
+    checks: dict[str, bool] = Field(default_factory=dict)
+    diagnostics: list[str] = Field(default_factory=list)
+    preview: dict[str, str] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 class GeneratedFile(BaseModel):
     path: str = Field(min_length=1, max_length=500)

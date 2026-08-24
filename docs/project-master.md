@@ -3,13 +3,14 @@
 - CAP-001 Business Discovery: implemented and evaluated.
 - CAP-002 Website Strategy: implemented with human approval.
 - CAP-003 Brand & Design Direction: implemented with Studio review and approval.
-- CAP-004 Website Specification: implemented with Studio review and approval; ready to become the contract for website generation.
-- Next major milestone: generated website implementation and preview.
+- CAP-004 Website Specification: implemented with Studio review and approval.
+- CAP-005 Website Generation: implemented with deterministic Next.js App Router generation.
+- CAP-006 Preview & Validation: implemented with deterministic artifact validation and safe browser preview.
 
 # AWE Platform / AWE Studio --- Master Project Record
 
 **Genesis baseline:** v0.1.1 --- frozen\
-**Current milestone:** CAP-004 --- Website Specification\
+**Current milestone:** CAP-006 --- Preview & Validation\
 **Status:** Living master document
 
 ## 1. Executive status
@@ -1609,3 +1610,8 @@ This reinforces the release principle: local developer validation, CI validation
 ## CAP-005 reference
 
 See [`cap-005-studio.md`](./cap-005-studio.md) for the Website Generation capability. CAP-005 consumes only approved Website Specifications and produces a deterministic Next.js App Router generation artifact.
+
+
+## CAP-006 reference
+
+See [`cap-006-studio.md`](./cap-006-studio.md) for the Preview & Validation capability. CAP-006 validates generated project structure and provides a safe preview boundary without executing generated code inside Studio.

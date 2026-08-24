@@ -34,3 +34,12 @@ These changes address the local `pnpm lint` and `pnpm test` failures reported af
 - Added `WebsiteGeneration` artifact and persistence contract.
 - Added deterministic Next.js App Router file generator.
 - Added generation API and tests.
+
+
+## CAP-006 — Preview & Validation
+
+- Added deterministic Website Validation artifact and API endpoint.
+- Added structural checks for generated Next.js project files and page coverage.
+- Added safe HTML preview rendered in Studio without executing generated application code.
+- Added CAP-006 Studio Preview stage and API test coverage.
+- Deferred isolated generated-project execution to a future sandbox/build-runner capability.
