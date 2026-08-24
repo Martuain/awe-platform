@@ -21,4 +21,16 @@
 - Add deployment-hardening documentation and release-gate rules.
 - Preserve `docs/project-master.md` as the living project record.
 - Lockfile regeneration is intentionally deferred to the repository owner because this environment cannot access the pnpm registry.
-\n\n## CAP-003 v0.1.2 — local validation hardening\n\n- Moved pnpm `onlyBuiltDependencies` from deprecated `package.json#pnpm` to `pnpm-workspace.yaml`.\n- Reworked Next.js ESLint configuration to use `@next/eslint-plugin-next` directly, avoiding the `nextVitals is not iterable` incompatibility observed with `eslint-config-next@15.5.21`.\n- Added `@next/eslint-plugin-next@15.5.21` as an explicit Studio dev dependency.\n- Made the Python API test command explicit as `python3 -m pytest`.\n- Updated GitHub CI to provision Python 3.12, install API requirements, and run the test suite.\n\nThese changes address the local `pnpm lint` and `pnpm test` failures reported after the CAP-003 deployment-hardening patch.\n
+
+
+## CAP-003 v0.1.2 — local validation hardening
+
+- Moved pnpm `onlyBuiltDependencies` from deprecated `package.json#pnpm` to `pnpm-workspace.yaml`.\n- Reworked Next.js ESLint configuration to use `@next/eslint-plugin-next` directly, avoiding the `nextVitals is not iterable` incompatibility observed with `eslint-config-next@15.5.21`.\n- Added `@next/eslint-plugin-next@15.5.21` as an explicit Studio dev dependency.\n- Made the Python API test command explicit as `python3 -m pytest`.\n- Updated GitHub CI to provision Python 3.12, install API requirements, and run the test suite.
+
+These changes address the local `pnpm lint` and `pnpm test` failures reported after the CAP-003 deployment-hardening patch.\n
+## CAP-005 — Website Generation
+
+- Added approved-specification-gated website generation.
+- Added `WebsiteGeneration` artifact and persistence contract.
+- Added deterministic Next.js App Router file generator.
+- Added generation API and tests.

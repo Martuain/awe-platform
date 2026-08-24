@@ -105,3 +105,16 @@ This separation allows AWE to evaluate the specification independently from the 
 ## Next step
 
 CAP-005 should consume only approved Website Specifications and generate the first real Next.js website artifact plus a previewable result.
+
+## CAP-004 implementation defects and resolution
+
+Two packaging defects were found during local release validation:
+
+1. A generated `apps/studio/app/page.tsx` contained a literal escaped newline sequence inside a TypeScript declaration. ESLint did not surface the issue, but the Next.js production compiler did. The source was corrected to contain an actual line break.
+2. The first CAP-004 page artifact contained an invalid nested JSX conditional around the Design and Website Specification branches. Next.js reported `Expected '</', got ':'`. The conditional was rewritten as explicit `stage` branches.
+
+Both defects were corrected in the fixed CAP-004 package and the repository owner subsequently confirmed the complete `pnpm lint && pnpm build && pnpm test` gate was green before committing CAP-004.
+
+### Release-process lesson
+
+For generated Studio artifacts, lint success alone is insufficient. Every capability package must pass the production Next.js build before handoff.

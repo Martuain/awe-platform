@@ -1597,4 +1597,15 @@ Repository CI
 ```
 
 This deployment issue therefore remains part of CAP-003 history and is not treated as an unrelated infrastructure incident.
-\n\n## CAP-003 deployment hardening follow-up\n\nThe first deployment-hardening patch upgraded Next.js/React and fixed the extension-based ESLint import, but local validation exposed two further issues:\n\n1. pnpm 10 ignores the `pnpm` settings field in `package.json`; `onlyBuiltDependencies` therefore belongs in `pnpm-workspace.yaml`.\n2. With `eslint-config-next@15.5.21`, the imported `core-web-vitals.js` value was not iterable in this repository's ESLint runtime. The configuration was therefore made explicit through `@next/eslint-plugin-next`, preserving the same Next.js recommended/Core Web Vitals rules without depending on that module shape.\n3. `pnpm test` previously invoked `pytest` without provisioning Python dependencies. The API test command is now explicit and CI provisions Python 3.12 plus `apps/api/requirements.txt`.\n\nThis reinforces the release principle: local developer validation, CI validation and Vercel validation must exercise the same dependency/runtime assumptions.\n
+
+
+## CAP-003 deployment hardening follow-up
+
+The first deployment-hardening patch upgraded Next.js/React and fixed the extension-based ESLint import, but local validation exposed two further issues:
+
+1. pnpm 10 ignores the `pnpm` settings field in `package.json`; `onlyBuiltDependencies` therefore belongs in `pnpm-workspace.yaml`.\n2. With `eslint-config-next@15.5.21`, the imported `core-web-vitals.js` value was not iterable in this repository's ESLint runtime. The configuration was therefore made explicit through `@next/eslint-plugin-next`, preserving the same Next.js recommended/Core Web Vitals rules without depending on that module shape.\n3. `pnpm test` previously invoked `pytest` without provisioning Python dependencies. The API test command is now explicit and CI provisions Python 3.12 plus `apps/api/requirements.txt`.
+
+This reinforces the release principle: local developer validation, CI validation and Vercel validation must exercise the same dependency/runtime assumptions.\n
+## CAP-005 reference
+
+See [`cap-005-studio.md`](./cap-005-studio.md) for the Website Generation capability. CAP-005 consumes only approved Website Specifications and produces a deterministic Next.js App Router generation artifact.

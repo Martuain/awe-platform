@@ -23,6 +23,7 @@ from app.models import (
     BrandDesignStatus,
     WebsiteSpecification,
     WebsiteSpecificationStatus,
+    WebsiteGeneration,
 )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -111,6 +112,27 @@ class WebsiteSpecificationRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class WebsiteGenerationRow(Base):
+    __tablename__ = "website_generations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), index=True, unique=True)
+    version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class WebsiteGenerationVersionRow(Base):
+    __tablename__ = "website_generation_versions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    generation_id: Mapped[str] = mapped_column(String(36), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class WebsiteSpecificationVersionRow(Base):
     __tablename__ = "website_specification_versions"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -147,6 +169,8 @@ class Repository:
     async def create_specification(self, specification: WebsiteSpecification) -> WebsiteSpecification: ...
     async def get_specification(self, project_id: UUID) -> WebsiteSpecification | None: ...
     async def approve_specification(self, project_id: UUID) -> WebsiteSpecification: ...
+    async def create_generation(self, generation: WebsiteGeneration) -> WebsiteGeneration: ...
+    async def get_generation(self, project_id: UUID) -> WebsiteGeneration | None: ...
 
 
 class InMemoryRepository(Repository):
@@ -156,6 +180,7 @@ class InMemoryRepository(Repository):
         self.strategies: dict[UUID, list[WebsiteStrategy]] = {}
         self.designs: dict[UUID, list[BrandDesignDirection]] = {}
         self.specifications: dict[UUID, list[WebsiteSpecification]] = {}
+        self.generations: dict[UUID, list[WebsiteGeneration]] = {}
 
     async def create_project(self, name: str) -> Project:
         project = Project(name=name)
@@ -252,6 +277,14 @@ class InMemoryRepository(Repository):
         specification.approved_at = datetime.now(timezone.utc)
         self.specifications[project_id].append(specification.model_copy(deep=True))
         return specification
+
+    async def create_generation(self, generation: WebsiteGeneration) -> WebsiteGeneration:
+        self.generations.setdefault(generation.project_id, []).append(generation.model_copy(deep=True))
+        return generation
+
+    async def get_generation(self, project_id: UUID) -> WebsiteGeneration | None:
+        versions = self.generations.get(project_id, [])
+        return versions[-1].model_copy(deep=True) if versions else None
 
 
 class SqlAlchemyRepository(Repository):
@@ -428,6 +461,26 @@ class SqlAlchemyRepository(Repository):
         specification.status = WebsiteSpecificationStatus.APPROVED
         specification.approved_at = datetime.now(timezone.utc)
         return await self.create_specification(specification)
+
+    async def create_generation(self, generation: WebsiteGeneration) -> WebsiteGeneration:
+        now = datetime.now(timezone.utc)
+        payload = generation.model_dump_json()
+        async with self.session_factory() as session:
+            result = await session.execute(select(WebsiteGenerationRow).where(WebsiteGenerationRow.project_id == str(generation.project_id)))
+            row = result.scalars().first()
+            if row:
+                row.id = str(generation.generation_id); row.payload = payload; row.status = generation.status.value; row.version = generation.version
+            else:
+                session.add(WebsiteGenerationRow(id=str(generation.generation_id), project_id=str(generation.project_id), status=generation.status.value, version=generation.version, payload=payload, created_at=now))
+            session.add(WebsiteGenerationVersionRow(id=str(uuid4()), project_id=str(generation.project_id), generation_id=str(generation.generation_id), version=generation.version, status=generation.status.value, payload=payload, created_at=now))
+            await session.commit()
+        return generation
+
+    async def get_generation(self, project_id: UUID) -> WebsiteGeneration | None:
+        async with self.session_factory() as session:
+            result = await session.execute(select(WebsiteGenerationRow).where(WebsiteGenerationRow.project_id == str(project_id)))
+            row = result.scalars().first()
+        return WebsiteGeneration.model_validate_json(row.payload) if row else None
 
 
 async def init_database() -> None:

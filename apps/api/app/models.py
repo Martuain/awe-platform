@@ -168,6 +168,33 @@ class BrandDesignDirection(BaseModel):
 
 
 
+
+
+class WebsiteGenerationStatus(str, Enum):
+    GENERATED = "generated"
+    VALIDATED = "validated"
+    FAILED = "failed"
+
+
+class GeneratedFile(BaseModel):
+    path: str = Field(min_length=1, max_length=500)
+    content: str
+
+
+class WebsiteGeneration(BaseModel):
+    project_id: UUID
+    generation_id: UUID = Field(default_factory=uuid4)
+    version: int = 1
+    status: WebsiteGenerationStatus = WebsiteGenerationStatus.GENERATED
+    source_specification_version: int = 0
+    framework: str = "Next.js App Router"
+    files: list[GeneratedFile] = Field(default_factory=list)
+    pages_generated: list[str] = Field(default_factory=list)
+    validation: dict[str, object] = Field(default_factory=dict)
+    rationale: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class WebsiteSpecificationStatus(str, Enum):
     DRAFT = "draft"
     READY_FOR_REVIEW = "ready_for_review"

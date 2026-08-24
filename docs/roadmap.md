@@ -48,3 +48,11 @@
 - Billing
 - Continuous optimization
 - Additional digital-experience outputs
+
+### M3 Website Generation — CAP-005 progress
+- [x] Deterministic Website Generation artifact
+- [x] Approved Website Specification gate
+- [x] Next.js App Router file generation baseline
+- [x] Generation validation contract
+- [ ] Generated-project build validation
+- [ ] Preview
