@@ -6,11 +6,12 @@
 - CAP-004 Website Specification: implemented with Studio review and approval.
 - CAP-005 Website Generation: implemented with deterministic Next.js App Router generation.
 - CAP-006 Preview & Validation: implemented with deterministic artifact validation and safe browser preview.
+- CAP-007 Isolated Build & Runtime Contract: implemented as a non-executing sandbox contract; real isolated execution remains CAP-008.
 
 # AWE Platform / AWE Studio --- Master Project Record
 
 **Genesis baseline:** v0.1.1 --- frozen\
-**Current milestone:** CAP-006 --- Preview & Validation\
+**Current milestone:** CAP-007 --- Isolated Build & Runtime Contract\
 **Status:** Living master document
 
 ## 1. Executive status

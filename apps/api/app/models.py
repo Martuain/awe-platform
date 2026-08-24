@@ -210,6 +210,25 @@ class WebsiteGeneration(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+
+
+class WebsiteBuildStatus(str, Enum):
+    PLANNED = "planned"
+    REJECTED = "rejected"
+
+
+class WebsiteBuildPlan(BaseModel):
+    project_id: UUID
+    generation_version: int
+    status: WebsiteBuildStatus
+    isolation: str = "sandbox-required"
+    runtime: str = "nextjs-app-router"
+    workspace_strategy: str = "ephemeral-workspace"
+    allowed_commands: list[str] = Field(default_factory=lambda: ["next build", "next start"])
+    network_access: str = "disabled-by-default"
+    diagnostics: list[str] = Field(default_factory=list)
+    files: list[str] = Field(default_factory=list)
+
 class WebsiteSpecificationStatus(str, Enum):
     DRAFT = "draft"
     READY_FOR_REVIEW = "ready_for_review"

@@ -57,3 +57,15 @@
 - [x] Deterministic artifact validation
 - [x] Safe browser preview
 
+
+
+### M3 Website Generation — CAP-007 progress
+- [x] Build lifecycle contract
+- [x] Explicit sandbox boundary
+- [x] Ephemeral workspace strategy
+- [x] Allowlisted build/runtime commands
+- [x] Network-disabled-by-default policy
+- [x] Deterministic build-plan diagnostics
+- [ ] Real isolated execution adapter
+- [ ] Disposable runtime
+- [ ] Live preview endpoint

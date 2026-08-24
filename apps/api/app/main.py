@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import health, projects, discovery, strategy, design, specification, generation, validation
+from app.routes import health, projects, discovery, strategy, design, specification, generation, validation, build
 from app.store import build_repository, init_database
 
 
@@ -37,3 +37,4 @@ app.include_router(design.router, prefix="/api/v1")
 app.include_router(specification.router, prefix="/api/v1")
 app.include_router(generation.router, prefix="/api/v1")
 app.include_router(validation.router, prefix="/api/v1")
+app.include_router(build.router, prefix="/api/v1")
