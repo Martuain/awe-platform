@@ -2,13 +2,14 @@
 
 - CAP-001 Business Discovery: implemented and evaluated.
 - CAP-002 Website Strategy: implemented with human approval.
-- CAP-003 Brand & Design Direction: backend capability implemented; Studio review and approval flow now integrated.
-- Next major milestone: end-to-end website specification and generation.
+- CAP-003 Brand & Design Direction: implemented with Studio review and approval.
+- CAP-004 Website Specification: implemented with Studio review and approval; ready to become the contract for website generation.
+- Next major milestone: generated website implementation and preview.
 
 # AWE Platform / AWE Studio --- Master Project Record
 
 **Genesis baseline:** v0.1.1 --- frozen\
-**Current milestone:** CAP-001 --- Business Discovery\
+**Current milestone:** CAP-004 --- Website Specification\
 **Status:** Living master document
 
 ## 1. Executive status
@@ -452,6 +453,40 @@ Deployment
 ```
 
 ------------------------------------------------------------------------
+
+## CAP-004 --- Website Specification
+
+CAP-004 translates the approved Strategy and approved Brand & Design Direction into an implementation-ready Website Specification.
+
+The artifact is intentionally not generated code. It defines the deterministic contract that the future generation capability must satisfy.
+
+### Inputs
+
+```text
+Approved Discovery
+      ↓
+Approved Strategy
+      ↓
+Approved Design Direction
+```
+
+### Outputs
+
+- page-level objectives;
+- required sections;
+- content requirements;
+- component requirements;
+- global components;
+- SEO requirements;
+- accessibility requirements;
+- responsive requirements;
+- technical requirements;
+- acceptance criteria;
+- provenance through source strategy/design versions.
+
+The Studio exposes the specification as a reviewable artifact and requires explicit human approval before the next generation stage.
+
+Detailed implementation reference: [CAP-004 Studio experience](cap-004-studio.md).
 
 ## 16.1 CAP-002 Studio experience
 

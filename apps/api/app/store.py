@@ -21,6 +21,8 @@ from app.models import (
     StrategyStatus,
     BrandDesignDirection,
     BrandDesignStatus,
+    WebsiteSpecification,
+    WebsiteSpecificationStatus,
 )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -99,6 +101,27 @@ class BrandDesignDirectionVersionRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class WebsiteSpecificationRow(Base):
+    __tablename__ = "website_specifications"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), index=True, unique=True)
+    status: Mapped[str] = mapped_column(String(32))
+    version: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class WebsiteSpecificationVersionRow(Base):
+    __tablename__ = "website_specification_versions"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    specification_id: Mapped[str] = mapped_column(String(36), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class SourceMessageRow(Base):
     __tablename__ = "source_messages"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -121,6 +144,9 @@ class Repository:
     async def create_design(self, design: BrandDesignDirection) -> BrandDesignDirection: ...
     async def get_design(self, project_id: UUID) -> BrandDesignDirection | None: ...
     async def approve_design(self, project_id: UUID) -> BrandDesignDirection: ...
+    async def create_specification(self, specification: WebsiteSpecification) -> WebsiteSpecification: ...
+    async def get_specification(self, project_id: UUID) -> WebsiteSpecification | None: ...
+    async def approve_specification(self, project_id: UUID) -> WebsiteSpecification: ...
 
 
 class InMemoryRepository(Repository):
@@ -129,6 +155,7 @@ class InMemoryRepository(Repository):
         self.contexts: dict[UUID, DiscoveryContext] = {}
         self.strategies: dict[UUID, list[WebsiteStrategy]] = {}
         self.designs: dict[UUID, list[BrandDesignDirection]] = {}
+        self.specifications: dict[UUID, list[WebsiteSpecification]] = {}
 
     async def create_project(self, name: str) -> Project:
         project = Project(name=name)
@@ -205,6 +232,26 @@ class InMemoryRepository(Repository):
         design.approved_at = datetime.now(timezone.utc)
         self.designs[project_id].append(design.model_copy(deep=True))
         return design
+
+
+    async def create_specification(self, specification: WebsiteSpecification) -> WebsiteSpecification:
+        self.specifications.setdefault(specification.project_id, []).append(specification.model_copy(deep=True))
+        return specification
+
+    async def get_specification(self, project_id: UUID) -> WebsiteSpecification | None:
+        versions = self.specifications.get(project_id, [])
+        return versions[-1].model_copy(deep=True) if versions else None
+
+    async def approve_specification(self, project_id: UUID) -> WebsiteSpecification:
+        specification = await self.get_specification(project_id)
+        if not specification:
+            raise KeyError(project_id)
+        if specification.status != WebsiteSpecificationStatus.READY_FOR_REVIEW:
+            raise ValueError("Website Specification is not ready for approval")
+        specification.status = WebsiteSpecificationStatus.APPROVED
+        specification.approved_at = datetime.now(timezone.utc)
+        self.specifications[project_id].append(specification.model_copy(deep=True))
+        return specification
 
 
 class SqlAlchemyRepository(Repository):
@@ -347,6 +394,40 @@ class SqlAlchemyRepository(Repository):
         if design.status != BrandDesignStatus.READY_FOR_REVIEW: raise ValueError("Brand & Design Direction is not ready for approval")
         design.status = BrandDesignStatus.APPROVED; design.approved_at = datetime.now(timezone.utc)
         return await self.create_design(design)
+
+
+    async def create_specification(self, specification: WebsiteSpecification) -> WebsiteSpecification:
+        now = datetime.now(timezone.utc)
+        payload = specification.model_dump_json()
+        async with self.session_factory() as session:
+            result = await session.execute(select(WebsiteSpecificationRow).where(WebsiteSpecificationRow.project_id == str(specification.project_id)))
+            row = result.scalars().first()
+            if row:
+                row.id = str(specification.specification_id)
+                row.payload = payload
+                row.status = specification.status.value
+                row.version = specification.version
+            else:
+                session.add(WebsiteSpecificationRow(id=str(specification.specification_id), project_id=str(specification.project_id), status=specification.status.value, version=specification.version, payload=payload, created_at=now))
+            session.add(WebsiteSpecificationVersionRow(id=str(uuid4()), project_id=str(specification.project_id), specification_id=str(specification.specification_id), version=specification.version, status=specification.status.value, payload=payload, created_at=now))
+            await session.commit()
+        return specification
+
+    async def get_specification(self, project_id: UUID) -> WebsiteSpecification | None:
+        async with self.session_factory() as session:
+            result = await session.execute(select(WebsiteSpecificationRow).where(WebsiteSpecificationRow.project_id == str(project_id)))
+            row = result.scalars().first()
+        return WebsiteSpecification.model_validate_json(row.payload) if row else None
+
+    async def approve_specification(self, project_id: UUID) -> WebsiteSpecification:
+        specification = await self.get_specification(project_id)
+        if not specification:
+            raise KeyError(project_id)
+        if specification.status != WebsiteSpecificationStatus.READY_FOR_REVIEW:
+            raise ValueError("Website Specification is not ready for approval")
+        specification.status = WebsiteSpecificationStatus.APPROVED
+        specification.approved_at = datetime.now(timezone.utc)
+        return await self.create_specification(specification)
 
 
 async def init_database() -> None:

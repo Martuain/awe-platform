@@ -166,3 +166,39 @@ class BrandDesignDirection(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     approved_at: datetime | None = None
 
+
+
+class WebsiteSpecificationStatus(str, Enum):
+    DRAFT = "draft"
+    READY_FOR_REVIEW = "ready_for_review"
+    APPROVED = "approved"
+
+
+class WebsitePageSpecification(BaseModel):
+    path: str = Field(min_length=1, max_length=200)
+    name: str = Field(min_length=1, max_length=120)
+    objective: str = Field(min_length=1, max_length=500)
+    primary_cta: str | None = None
+    required_sections: list[str] = Field(default_factory=list)
+    content_requirements: list[str] = Field(default_factory=list)
+    components: list[str] = Field(default_factory=list)
+
+
+class WebsiteSpecification(BaseModel):
+    project_id: UUID
+    specification_id: UUID = Field(default_factory=uuid4)
+    version: int = 1
+    status: WebsiteSpecificationStatus = WebsiteSpecificationStatus.DRAFT
+    pages: list[WebsitePageSpecification] = Field(default_factory=list)
+    global_components: list[str] = Field(default_factory=list)
+    content_requirements: list[str] = Field(default_factory=list)
+    seo_requirements: list[str] = Field(default_factory=list)
+    accessibility_requirements: list[str] = Field(default_factory=list)
+    responsive_requirements: list[str] = Field(default_factory=list)
+    technical_requirements: list[str] = Field(default_factory=list)
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    rationale: list[str] = Field(default_factory=list)
+    source_strategy_version: int = 0
+    source_design_version: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    approved_at: datetime | None = None
