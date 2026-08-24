@@ -65,6 +65,13 @@ type WebsiteValidation = {
   preview: { format: string; title: string; html: string };
 };
 
+type WebsitePreview = {
+  status: "started" | "stopped" | "failed" | "unavailable";
+  url?: string | null;
+  container_id?: string | null;
+  diagnostics: string[];
+};
+
 type WebsiteGeneration = {
   version: number;
   status: "generated" | "validated" | "failed";
@@ -105,6 +112,7 @@ export default function Home() {
   const [specification, setSpecification] = useState<WebsiteSpecification | null>(null);
   const [generation, setGeneration] = useState<WebsiteGeneration | null>(null);
   const [validation, setValidation] = useState<WebsiteValidation | null>(null);
+  const [previewRuntime, setPreviewRuntime] = useState<WebsitePreview | null>(null);
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -277,6 +285,27 @@ export default function Home() {
     finally { setBusy(false); }
   }
 
+  async function startLivePreview() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const preview = await api<WebsitePreview>(`/api/v1/website-preview/start?project_id=${project.id}`, { method: "POST" });
+      setPreviewRuntime(preview);
+      if (preview.status !== "started") setError(preview.diagnostics.join(" ") || "Unable to start live preview");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to start live preview"); }
+    finally { setBusy(false); }
+  }
+
+  async function stopLivePreview() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const preview = await api<WebsitePreview | null>(`/api/v1/website-preview/stop?project_id=${project.id}`, { method: "POST" });
+      setPreviewRuntime(preview);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to stop live preview"); }
+    finally { setBusy(false); }
+  }
+
   async function validateWebsite() {
     if (!project) return;
     setBusy(true); setError("");
@@ -413,6 +442,7 @@ export default function Home() {
             <div className="design-summary"><div><small>Generation</small><strong>v{validation.generation_version}</strong></div><div><small>Validation</small><strong>{validation.status}</strong></div><div><small>Checks</small><strong>{Object.values(validation.checks).filter(Boolean).length}/{Object.keys(validation.checks).length}</strong></div><div><small>Preview</small><strong>{validation.preview.format.toUpperCase()}</strong></div></div>
             <div className="strategy-grid"><div><h3>Validation checks</h3><ul>{Object.entries(validation.checks).map(([key, value]) => <li key={key}>{key}: <strong>{value ? "PASS" : "FAIL"}</strong></li>)}</ul>{validation.diagnostics.length > 0 && <><h3>Diagnostics</h3><ul>{validation.diagnostics.map((x) => <li key={x}>{x}</li>)}</ul></>}</div><div><h3>Browser preview</h3><iframe title="AWE generated website preview" srcDoc={validation.preview.html} style={{width:"100%",height:520,border:"1px solid #ddd",borderRadius:12,background:"white"}} /></div></div>
             <div className="finding"><strong>CAP-006 boundary</strong><p>This preview is rendered from the generated artifact and validation metadata. It does not execute arbitrary generated code inside Studio.</p></div>
+            <div className="finding"><strong>CAP-009 disposable runtime</strong><p>Start an isolated Docker runtime for the validated generated site. The runtime is disposable and never runs inside the AWE Studio or API process.</p>{previewRuntime?.status === "started" && previewRuntime.url ? <p><a href={previewRuntime.url} target="_blank" rel="noreferrer">Open live preview ↗</a> <button className="secondary" onClick={stopLivePreview} disabled={busy}>Stop runtime</button></p> : <button className="primary" onClick={startLivePreview} disabled={busy}>{busy ? "Starting…" : "Start live preview"}</button>}{previewRuntime?.diagnostics?.length ? <ul>{previewRuntime.diagnostics.map((x) => <li key={x}>{x}</li>)}</ul> : null}</div>
             <div className="actions"><button className="secondary" onClick={() => setStage("generation")}>Back to Generation</button><button className="approve" onClick={validateWebsite} disabled={busy}>{busy ? "Revalidating…" : "Revalidate"}</button></div>
           </>}
         </section>

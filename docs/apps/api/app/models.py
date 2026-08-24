@@ -212,6 +212,24 @@ class WebsiteGeneration(BaseModel):
 
 
 
+class WebsitePreviewStatus(str, Enum):
+    STARTED = "started"
+    STOPPED = "stopped"
+    FAILED = "failed"
+    UNAVAILABLE = "unavailable"
+
+
+class WebsitePreview(BaseModel):
+    project_id: UUID
+    preview_id: UUID = Field(default_factory=uuid4)
+    generation_version: int
+    status: WebsitePreviewStatus
+    url: str | None = None
+    container_id: str | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class WebsiteBuildStatus(str, Enum):
     PLANNED = "planned"
     REJECTED = "rejected"

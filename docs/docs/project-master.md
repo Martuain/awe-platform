@@ -848,7 +848,7 @@ This is one of the major architectural evolutions.
 
 ------------------------------------------------------------------------
 
-## 29. Long-term capability roadmap
+## 29. Long-term capability roadmap (strategic baseline)
 
 ### CAP-001 --- Business Discovery
 
@@ -884,7 +884,7 @@ and content quality.
 
 Publish.
 
-### CAP-009 --- Continuous Improvement
+### CAP-009 --- Continuous Improvement (original strategic roadmap; not the implementation sequence)
 
 Use feedback and analytics to improve the website.
 
@@ -1620,7 +1620,7 @@ See [`cap-006-studio.md`](./cap-006-studio.md) for the Preview & Validation capa
 
 ---
 
-# Chronological Capability Record — CAP-001 → CAP-008
+# Chronological Capability Record — CAP-001 → CAP-009
 
 This section is the canonical chronological implementation record. Each capability records what was actually proven, what was deliberately deferred, and the technology decisions that resulted from evidence. Earlier sections remain the strategic baseline; this section prevents later milestones from obscuring historical reasoning.
 
@@ -1688,6 +1688,20 @@ This section is the canonical chronological implementation record. Each capabili
 
 **Deferred:** long-lived preview runtime, public preview URL, arbitrary npm dependency support, production multi-tenant isolation, deployment.
 
+## CAP-009 — Disposable Live Preview Runtime
+
+**Outcome:** extends the CAP-008 execution boundary into a real, disposable Next.js runtime. Studio can start and stop the runtime and open a dynamically allocated localhost preview URL.
+
+**Chronology:** CAP-009 deliberately follows CAP-008. AWE first proved that generated code can be built outside the host process; only then was actual application runtime execution introduced.
+
+**Key decisions:** reuse Docker; require a valid CAP-007 build plan; disable lifecycle scripts during dependency acquisition; keep the build phase network-disabled; run `next start` only inside the container; apply CPU, memory and PID limits; clean up the runtime and workspace explicitly.
+
+**Security trade-off:** the runtime needs to accept browser traffic, so the MVP uses Docker bridge networking with a localhost-only published port. This is weaker than a production no-egress sandbox and is explicitly not approved as a public multi-tenant execution model.
+
+**Technology implication:** Docker remains the selected proof substrate. Kubernetes Jobs and Firecracker/microVMs remain deferred until scale, threat-model and compliance evidence justify the additional operational complexity.
+
+**Deferred:** persistent preview sessions, public preview URLs, arbitrary npm dependencies, browser automation, production egress control, production-grade multi-tenant isolation and deployment.
+
 ---
 
 # Technology Decision Register
@@ -1730,7 +1744,7 @@ This register complements ADRs. The master records the chronological product/eng
 
 ---
 
-# Current State after CAP-008
+# Current State after CAP-009
 
 ```text
 AWE Studio
@@ -1747,12 +1761,14 @@ CAP-007 Build Contract
    ↓
 CAP-008 Docker-Isolated Build
    ↓
-[CAP-009 Runtime / Live Preview]
+CAP-009 Disposable Live Preview Runtime
    ↓
 Deployment
 ```
 
 **Known-good engineering gate:** `pnpm lint && pnpm build && pnpm test` remains mandatory after each capability.
+
+**Latest implementation milestone:** CAP-009 Disposable Live Preview Runtime.
 
 **Current security rule:** generated code must never execute in the AWE host process.
 

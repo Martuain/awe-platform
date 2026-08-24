@@ -69,4 +69,5 @@
 - [x] Real isolated execution adapter
 - [x] Disposable build workspace
 - [ ] Long-lived disposable runtime
-- [ ] Live preview endpoint
+- [x] Live preview endpoint
+- [x] Disposable live runtime
