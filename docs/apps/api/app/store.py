@@ -25,6 +25,7 @@ from app.models import (
     WebsiteSpecificationStatus,
     WebsiteGeneration,
     WebsiteDeployment,
+    DeploymentStatus,
 )
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -123,6 +124,22 @@ class WebsiteGenerationRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class WebsiteDeploymentRow(Base):
+    __tablename__ = "website_deployments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36), index=True)
+    generation_version: Mapped[int] = mapped_column(Integer)
+    version: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32))
+    provider: Mapped[str] = mapped_column(String(64))
+    url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    runtime_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    diagnostics: Mapped[str] = mapped_column(Text, default="[]")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    deployed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class WebsiteGenerationVersionRow(Base):
     __tablename__ = "website_generation_versions"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -156,6 +173,7 @@ class SourceMessageRow(Base):
 class Repository:
     async def create_project(self, name: str) -> Project: ...
     async def get_project(self, project_id: UUID) -> Project | None: ...
+    async def list_projects(self) -> list[Project]: ...
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext: ...
     async def get_context(self, project_id: UUID) -> DiscoveryContext | None: ...
     async def append_message(self, project_id: UUID, message: str) -> DiscoveryContext: ...
@@ -194,7 +212,11 @@ class InMemoryRepository(Repository):
         return project
 
     async def get_project(self, project_id: UUID) -> Project | None:
-        return self.projects.get(project_id)
+        project = self.projects.get(project_id)
+        return project.model_copy(deep=True) if project else None
+
+    async def list_projects(self) -> list[Project]:
+        return sorted((p.model_copy(deep=True) for p in self.projects.values()), key=lambda p: p.created_at, reverse=True)
 
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext:
         context = DiscoveryContext(project_id=project_id, session_id=uuid4())
@@ -325,6 +347,12 @@ class SqlAlchemyRepository(Repository):
         if not row:
             return None
         return Project(id=UUID(row.id), name=row.name, status=ProjectStatus(row.status), created_at=row.created_at)
+
+    async def list_projects(self) -> list[Project]:
+        async with self.session_factory() as session:
+            result = await session.execute(select(ProjectRow).order_by(ProjectRow.created_at.desc()))
+            rows = result.scalars().all()
+        return [Project(id=UUID(row.id), name=row.name, status=ProjectStatus(row.status), created_at=row.created_at) for row in rows]
 
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext:
         session_id = uuid4()
@@ -502,6 +530,63 @@ class SqlAlchemyRepository(Repository):
             result = await session.execute(select(WebsiteGenerationRow).where(WebsiteGenerationRow.project_id == str(project_id)))
             row = result.scalars().first()
         return WebsiteGeneration.model_validate_json(row.payload) if row else None
+
+
+    async def create_deployment(self, deployment: WebsiteDeployment) -> WebsiteDeployment:
+        import json
+        async with self.session_factory() as session:
+            session.add(WebsiteDeploymentRow(
+                id=str(deployment.deployment_id), project_id=str(deployment.project_id),
+                generation_version=deployment.generation_version, version=deployment.version,
+                status=deployment.status.value, provider=deployment.provider, url=deployment.url,
+                runtime_id=deployment.runtime_id, diagnostics=json.dumps(deployment.diagnostics),
+                created_at=deployment.created_at, deployed_at=deployment.deployed_at, stopped_at=deployment.stopped_at,
+            ))
+            await session.commit()
+        return deployment
+
+    async def get_deployment(self, deployment_id: UUID) -> WebsiteDeployment | None:
+        import json
+        async with self.session_factory() as session:
+            row = await session.get(WebsiteDeploymentRow, str(deployment_id))
+        if not row:
+            return None
+        return WebsiteDeployment(
+            project_id=UUID(row.project_id), deployment_id=UUID(row.id), generation_version=row.generation_version,
+            version=row.version, status=DeploymentStatus(row.status), provider=row.provider, url=row.url,
+            runtime_id=row.runtime_id, diagnostics=json.loads(row.diagnostics), created_at=row.created_at,
+            deployed_at=row.deployed_at, stopped_at=row.stopped_at,
+        )
+
+    async def list_deployments(self, project_id: UUID) -> list[WebsiteDeployment]:
+        import json
+        async with self.session_factory() as session:
+            result = await session.execute(select(WebsiteDeploymentRow).where(WebsiteDeploymentRow.project_id == str(project_id)).order_by(WebsiteDeploymentRow.created_at.desc()))
+            rows = result.scalars().all()
+        return [WebsiteDeployment(
+            project_id=UUID(row.project_id), deployment_id=UUID(row.id), generation_version=row.generation_version,
+            version=row.version, status=DeploymentStatus(row.status), provider=row.provider, url=row.url,
+            runtime_id=row.runtime_id, diagnostics=json.loads(row.diagnostics), created_at=row.created_at,
+            deployed_at=row.deployed_at, stopped_at=row.stopped_at,
+        ) for row in rows]
+
+    async def update_deployment(self, deployment: WebsiteDeployment) -> WebsiteDeployment:
+        import json
+        async with self.session_factory() as session:
+            row = await session.get(WebsiteDeploymentRow, str(deployment.deployment_id))
+            if not row:
+                raise KeyError(deployment.deployment_id)
+            row.generation_version = deployment.generation_version
+            row.version = deployment.version
+            row.status = deployment.status.value
+            row.provider = deployment.provider
+            row.url = deployment.url
+            row.runtime_id = deployment.runtime_id
+            row.diagnostics = json.dumps(deployment.diagnostics)
+            row.deployed_at = deployment.deployed_at
+            row.stopped_at = deployment.stopped_at
+            await session.commit()
+        return deployment
 
 
 async def init_database() -> None:

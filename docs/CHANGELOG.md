@@ -43,3 +43,12 @@ These changes address the local `pnpm lint` and `pnpm test` failures reported af
 - Added safe HTML preview rendered in Studio without executing generated application code.
 - Added CAP-006 Studio Preview stage and API test coverage.
 - Deferred isolated generated-project execution to a future sandbox/build-runner capability.
+
+
+## CAP-012 — Project Persistence & Workspace Model
+
+- Added persistent project listing and workspace summary API.
+- Formalized projects as the persistent workspace root.
+- Preserved Repository abstraction and SQLAlchemy/PostgreSQL boundary.
+- Added ADR-0010 and CAP-012 documentation.
+- Deferred authentication, tenancy, object storage and migration tooling.

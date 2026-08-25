@@ -18,7 +18,7 @@ type Deployment = {
 };
 
 type Stage = "discovery" | "strategy" | "design" | "specification" | "generation" | "preview" | "deployment";
-type Project = { id: string; name: string };
+type Project = { id: string; name: string; status?: string; created_at?: string };
 type DiscoveryContext = {
   status: "collecting" | "awaiting_approval" | "approved";
   version: number;
@@ -118,6 +118,7 @@ function Score({ value }: { value: number }) {
 
 export default function Home() {
   const [project, setProject] = useState<Project | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [stage, setStage] = useState<Stage>("discovery");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
@@ -134,6 +135,10 @@ export default function Home() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    api<Project[]>("/api/v1/projects")
+      .then(setProjects)
+      .catch(() => undefined);
+
     const saved = window.localStorage.getItem("awe-project-id");
     if (!saved) return;
     api<Project>(`/api/v1/projects/${saved}`)
@@ -202,7 +207,7 @@ export default function Home() {
       const p = await api<Project>("/api/v1/projects", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
       await api(`/api/v1/business-discovery/start?project_id=${p.id}`, { method: "POST" });
       const c = await api<DiscoveryContext>(`/api/v1/business-discovery/context/${p.id}`);
-      setProject(p); setContext(c); setName("");
+      setProject(p); setProjects((current) => [p, ...current.filter((item) => item.id !== p.id)]); setContext(c); setName("");
       window.localStorage.setItem("awe-project-id", p.id);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to create project"); }
     finally { setBusy(false); }
@@ -377,7 +382,20 @@ export default function Home() {
     <main className="shell">
       <header className="topbar">
         <div><span className="eyebrow">AWE Studio</span><strong>Genesis</strong></div>
-        {project && <span className="project-chip">{project.name}</span>}
+        {project ? (
+          <label className="project-switcher">
+            <span className="sr-only">Active project</span>
+            <select
+              value={project.id}
+              onChange={(event) => {
+                window.localStorage.setItem("awe-project-id", event.target.value);
+                window.location.reload();
+              }}
+            >
+              {projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+        ) : null}
       </header>
 
       <section className="hero">

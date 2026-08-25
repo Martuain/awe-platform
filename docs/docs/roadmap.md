@@ -10,7 +10,7 @@
 - [x] CAP-001 specification
 
 ### M1 Business Discovery
-- [ ] PostgreSQL persistence
+- [x] PostgreSQL persistence
 - [ ] AI model gateway
 - [ ] Conversational loop
 - [ ] Context extraction
@@ -79,3 +79,12 @@ Provider-neutral deployment lifecycle with a deterministic local provider; perma
 
 ## CAP-011 — Deployment UX & Lifecycle
 First-class deployment state, history, live URL and stop/redeploy lifecycle using the provider-neutral API.
+
+
+## CAP-012 — Project Persistence & Workspace Model
+- [x] Project listing API
+- [x] Persistent workspace summary
+- [x] Capability version visibility
+- [x] Deployment history included in workspace state
+- [x] Studio project switching
+- [x] Repository abstraction preserved

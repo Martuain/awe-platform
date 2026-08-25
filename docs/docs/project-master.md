@@ -1768,7 +1768,7 @@ Deployment
 
 **Known-good engineering gate:** `pnpm lint && pnpm build && pnpm test` remains mandatory after each capability.
 
-**Latest implementation milestone:** CAP-009 Disposable Live Preview Runtime.
+**Latest implementation milestone:** CAP-012 Project Persistence & Workspace Model.
 
 **Current security rule:** generated code must never execute in the AWE host process.
 
@@ -1777,7 +1777,7 @@ Deployment
 
 ## CAP-010 — Deployment Abstraction
 
-**Status:** Implemented / pending repository validation.
+**Status:** Implemented / validated in its repository gate.
 
 CAP-010 establishes a provider-neutral deployment contract and a deterministic
 local deployment provider. It intentionally does not freeze AWE to Vercel,
@@ -1802,7 +1802,7 @@ See `docs/cap-010-deployment.md` and
 
 ## CAP-011 — Deployment UX & Lifecycle
 
-**Status:** Implemented / pending repository validation.
+**Status:** Implemented / validated in its repository gate.
 
 CAP-011 turns the CAP-010 deployment abstraction into a first-class product
 workflow. Deployment is now represented as a versioned artifact with explicit
@@ -1844,3 +1844,32 @@ deployment, autoscaling, production observability and automatic promotion.
 
 See [CAP-011 deployment UX](cap-011-deployment-ux.md) and
 [ADR-0009](adr/ADR-0009-deployment-lifecycle-ux.md).
+
+
+------------------------------------------------------------------------
+
+## CAP-012 — Project Persistence & Workspace Model
+
+**Status:** Implemented / validated in the CAP-012 API test suite.
+
+CAP-012 formalizes the project as AWE's persistent workspace root. Studio/API can list projects and retrieve a resumable workspace summary containing the latest capability versions, deployment count and current workflow stage.
+
+### API
+
+```text
+GET /api/v1/projects
+GET /api/v1/projects/{project_id}
+GET /api/v1/projects/{project_id}/workspace
+```
+
+### Technology decision
+
+PostgreSQL remains the selected shared persistence technology because it is already part of the containerized baseline and provides transactions, indexing and a credible production path. SQLAlchemy remains the data-access boundary because it is already integrated and keeps persistence behind the Repository abstraction. SQLite was considered but deferred to avoid maintaining a second persistence topology.
+
+Capability payloads remain versioned behind typed Pydantic models. Full normalization of every capability-specific field and object storage for generated artifacts are deferred until evidence justifies the added complexity.
+
+### Deferred
+
+Authentication/authorization, multi-tenancy, migrations tooling, object/blob storage, backup/retention policy and full event sourcing.
+
+See [CAP-012](cap-012-studio.md) and [ADR-0010](adr/ADR-0010-project-persistence.md).

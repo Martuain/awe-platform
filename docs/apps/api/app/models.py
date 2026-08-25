@@ -26,6 +26,18 @@ class CreateProjectRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
+class WorkspaceSummary(BaseModel):
+    project: Project
+    current_stage: str
+    discovery_version: int | None = None
+    strategy_version: int | None = None
+    design_version: int | None = None
+    specification_version: int | None = None
+    generation_version: int | None = None
+    deployment_count: int = 0
+    latest_deployment_status: str | None = None
+
+
 class DiscoveryMessageRequest(BaseModel):
     project_id: UUID
     message: str = Field(min_length=1, max_length=10000)
