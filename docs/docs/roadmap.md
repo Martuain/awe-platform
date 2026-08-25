@@ -112,3 +112,13 @@ First-class deployment state, history, live URL and stop/redeploy lifecycle usin
 - [x] Successful build gate before preview/deployment
 - [x] Build diagnostics
 - [ ] Hosted/scalable build workers
+
+
+## CAP-016 + CAP-017 — MVP acceleration
+- [x] End-to-end Build → Validate → Preview Studio flow
+- [x] Strategy/design traceability in generated output
+- [x] Responsive generated-site baseline
+- [x] SEO metadata baseline
+- [x] Improved generated-site presentation
+- [ ] Hosted/scalable execution
+- [ ] Production cloud deployment provider

@@ -11,7 +11,7 @@
 # AWE Platform / AWE Studio --- Master Project Record
 
 **Genesis baseline:** v0.1.1 --- frozen\
-**Current milestone:** CAP-015 --- Executable Website Build & MVP Runtime Gate\
+**Current milestone:** CAP-016 + CAP-017 --- End-to-End Executable Flow & Website Quality Baseline\
 **Status:** Living master document
 
 ## 1. Executive status
@@ -1949,3 +1949,19 @@ CAP-015 intentionally reuses the existing Docker disposable execution boundary r
 ### Documentation
 
 See [CAP-015](cap-015-studio.md) and [ADR-0013](adr/ADR-0013-executable-mvp-build-gate.md).
+
+## CAP-016 + CAP-017 — End-to-End Executable Flow & Website Quality Baseline
+
+- [x] Studio build → validation → preview orchestration
+- [x] Build remains behind existing isolated Docker boundary
+- [x] Failed build/validation blocks progression
+- [x] Generated output consumes approved Strategy and Design artifacts
+- [x] Responsive website baseline
+- [x] SEO metadata baseline
+- [x] Design/strategy traceability checks
+- [x] Improved navigation, typography, sections and CTA presentation
+- [ ] Hosted/scalable build workers
+- [ ] Streaming/cancellable builds
+- [ ] Artifact registry
+
+See `docs/cap-016-017-studio.md` for the complete decision record and `docs/changelog-cap-016-017.md` for the implementation delta.
