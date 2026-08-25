@@ -88,3 +88,15 @@ First-class deployment state, history, live URL and stop/redeploy lifecycle usin
 - [x] Deployment history included in workspace state
 - [x] Studio project switching
 - [x] Repository abstraction preserved
+
+
+## CAP-013 — Project Lifecycle & Workspace UX
+- [x] Project lifecycle status (active/archived)
+- [x] Reversible archive/restore API
+- [x] Derived workspace progress
+- [x] Next-capability visibility
+- [x] Last activity visibility
+- [x] Studio workspace summary
+- [x] Lifecycle/workspace test coverage
+- [ ] Authentication and authorization
+- [ ] Multi-tenancy and collaboration

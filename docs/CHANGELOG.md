@@ -52,3 +52,12 @@ These changes address the local `pnpm lint` and `pnpm test` failures reported af
 - Preserved Repository abstraction and SQLAlchemy/PostgreSQL boundary.
 - Added ADR-0010 and CAP-012 documentation.
 - Deferred authentication, tenancy, object storage and migration tooling.
+
+
+## CAP-013 — Project Lifecycle & Workspace UX
+
+- Added active/archived project lifecycle state.
+- Added project lifecycle update API.
+- Extended workspace summaries with progress, next capability and last activity.
+- Added Studio workspace status/progress presentation.
+- Added CAP-013 documentation and ADR-0011.

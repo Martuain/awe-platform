@@ -174,6 +174,7 @@ class Repository:
     async def create_project(self, name: str) -> Project: ...
     async def get_project(self, project_id: UUID) -> Project | None: ...
     async def list_projects(self) -> list[Project]: ...
+    async def update_project(self, project_id: UUID, status: ProjectStatus) -> Project: ...
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext: ...
     async def get_context(self, project_id: UUID) -> DiscoveryContext | None: ...
     async def append_message(self, project_id: UUID, message: str) -> DiscoveryContext: ...
@@ -217,6 +218,14 @@ class InMemoryRepository(Repository):
 
     async def list_projects(self) -> list[Project]:
         return sorted((p.model_copy(deep=True) for p in self.projects.values()), key=lambda p: p.created_at, reverse=True)
+
+    async def update_project(self, project_id: UUID, status: ProjectStatus) -> Project:
+        project = self.projects.get(project_id)
+        if not project:
+            raise KeyError(project_id)
+        updated = project.model_copy(update={"status": status}, deep=True)
+        self.projects[project_id] = updated
+        return updated.model_copy(deep=True)
 
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext:
         context = DiscoveryContext(project_id=project_id, session_id=uuid4())
@@ -353,6 +362,16 @@ class SqlAlchemyRepository(Repository):
             result = await session.execute(select(ProjectRow).order_by(ProjectRow.created_at.desc()))
             rows = result.scalars().all()
         return [Project(id=UUID(row.id), name=row.name, status=ProjectStatus(row.status), created_at=row.created_at) for row in rows]
+
+    async def update_project(self, project_id: UUID, status: ProjectStatus) -> Project:
+        async with self.session_factory() as session:
+            row = await session.get(ProjectRow, str(project_id))
+            if not row:
+                raise KeyError(project_id)
+            row.status = status.value
+            await session.commit()
+            project = Project(id=UUID(row.id), name=row.name, status=ProjectStatus(row.status), created_at=row.created_at)
+        return project
 
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext:
         session_id = uuid4()

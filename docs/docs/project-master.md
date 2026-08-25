@@ -11,7 +11,7 @@
 # AWE Platform / AWE Studio --- Master Project Record
 
 **Genesis baseline:** v0.1.1 --- frozen\
-**Current milestone:** CAP-007 --- Isolated Build & Runtime Contract\
+**Current milestone:** CAP-013 --- Project Lifecycle & Workspace UX\
 **Status:** Living master document
 
 ## 1. Executive status
@@ -1768,7 +1768,7 @@ Deployment
 
 **Known-good engineering gate:** `pnpm lint && pnpm build && pnpm test` remains mandatory after each capability.
 
-**Latest implementation milestone:** CAP-012 Project Persistence & Workspace Model.
+**Latest implementation milestone:** CAP-013 Project Lifecycle & Workspace UX.
 
 **Current security rule:** generated code must never execute in the AWE host process.
 
@@ -1873,3 +1873,54 @@ Capability payloads remain versioned behind typed Pydantic models. Full normaliz
 Authentication/authorization, multi-tenancy, migrations tooling, object/blob storage, backup/retention policy and full event sourcing.
 
 See [CAP-012](cap-012-studio.md) and [ADR-0010](adr/ADR-0010-project-persistence.md).
+
+
+------------------------------------------------------------------------
+
+## CAP-013 — Project Lifecycle & Workspace UX
+
+**Status:** Implemented in the CAP-013 package; repository validation pending.
+
+CAP-013 turns CAP-012 persistence into a usable project lifecycle and workspace experience. Studio now exposes a compact workspace summary while the API remains the source of truth for project state and capability progress.
+
+### API
+
+```text
+GET   /api/v1/projects
+GET   /api/v1/projects/{project_id}
+PATCH /api/v1/projects/{project_id}
+GET   /api/v1/projects/{project_id}/workspace
+```
+
+### Workspace state
+
+The workspace now reports:
+
+- current stage;
+- next capability;
+- completed capabilities;
+- latest capability versions;
+- deployment count/status;
+- last activity timestamp.
+
+### Lifecycle
+
+```text
+Active ⇄ Archived
+```
+
+Archival is reversible and does not delete persisted project artifacts.
+
+### Technology decision
+
+CAP-013 deliberately does **not** introduce a new workflow service, project-management database, state machine or client-side persistence layer. Progress is derived from the existing capability artifacts behind the Repository abstraction. PostgreSQL + SQLAlchemy remain unchanged from CAP-012. Browser localStorage is retained only for the last-opened project convenience.
+
+### Why this matters
+
+The project is moving from a sequence of capability demos toward a coherent product workspace. Users can now understand where a project is, what AWE has completed and what AWE expects to do next without creating a second source of truth.
+
+### Deferred
+
+Authentication/authorization, multi-tenancy, collaborators/roles, deletion and retention policy, large-scale project search/filtering, activity/event timelines and project settings remain deferred.
+
+See [CAP-013](cap-013-studio.md) and [ADR-0011](adr/ADR-0011-project-lifecycle-workspace-ux.md).

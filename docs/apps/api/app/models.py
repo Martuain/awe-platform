@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class ProjectStatus(str, Enum):
     ACTIVE = "active"
+    ARCHIVED = "archived"
 
 
 class DiscoveryStatus(str, Enum):
@@ -26,6 +27,10 @@ class CreateProjectRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
+class UpdateProjectRequest(BaseModel):
+    status: ProjectStatus
+
+
 class WorkspaceSummary(BaseModel):
     project: Project
     current_stage: str
@@ -36,6 +41,9 @@ class WorkspaceSummary(BaseModel):
     generation_version: int | None = None
     deployment_count: int = 0
     latest_deployment_status: str | None = None
+    completed_capabilities: list[str] = Field(default_factory=list)
+    next_capability: str | None = None
+    last_activity_at: datetime | None = None
 
 
 class DiscoveryMessageRequest(BaseModel):

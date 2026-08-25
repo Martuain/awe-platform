@@ -50,4 +50,4 @@ This is an implementation baseline, not a finished SaaS product.
 
 ## Current milestone
 
-**CAP-011 — Deployment UX & Lifecycle** establishes first-class deployment state, history, live URL and stop/redeploy workflow behind a provider-neutral API.
+**CAP-013 — Project Lifecycle & Workspace UX** establishes project lifecycle state and a derived workspace summary for resuming and understanding AWE projects.
