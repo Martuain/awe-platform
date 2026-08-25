@@ -103,3 +103,12 @@ First-class deployment state, history, live URL and stop/redeploy lifecycle usin
 
 
 - **CAP-014:** Project duplication / fresh workspace templates — implemented.
+
+
+## CAP-015 — Executable Website Build & MVP Runtime Gate
+- [x] Studio Build stage
+- [x] Build-plan visibility
+- [x] Existing isolated Docker execution surfaced in Studio
+- [x] Successful build gate before preview/deployment
+- [x] Build diagnostics
+- [ ] Hosted/scalable build workers

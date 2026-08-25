@@ -67,3 +67,9 @@ These changes address the local `pnpm lint` and `pnpm test` failures reported af
 - Added project duplication endpoint and repository support.
 - Duplication creates a clean workspace with a new identity.
 - Added API regression coverage and ADR-0012.
+
+
+## CAP-015 — Executable Website Build & MVP Runtime Gate
+
+- Added first-class Studio Build stage and explicit execution gate.
+- Reused existing Docker isolation boundary; no new infrastructure introduced.

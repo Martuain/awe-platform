@@ -11,7 +11,7 @@
 # AWE Platform / AWE Studio --- Master Project Record
 
 **Genesis baseline:** v0.1.1 --- frozen\
-**Current milestone:** CAP-013 --- Project Lifecycle & Workspace UX\
+**Current milestone:** CAP-015 --- Executable Website Build & MVP Runtime Gate\
 **Status:** Living master document
 
 ## 1. Executive status
@@ -1930,3 +1930,22 @@ See [CAP-013](cap-013-studio.md) and [ADR-0011](adr/ADR-0011-project-lifecycle-w
 **Status:** Implemented / pending local green gate
 
 CAP-014 adds `POST /api/v1/projects/{project_id}/duplicate`. Duplication creates a new project identity and clean workspace while leaving the source unchanged. We deliberately do not deep-clone capability artifacts or deployment history. This avoids coupling duplication to the current persistence schema and prevents accidental reuse of deployment/runtime state. The existing Repository abstraction is retained; no new technology was introduced. See ADR-0012.
+
+
+## CAP-015 — Executable Website Build & MVP Runtime Gate
+
+**Status:** Implemented; local green gate pending.
+
+CAP-015 closes the key MVP execution gap by making the existing isolated website build capability a first-class Studio stage. The product path is now Discovery → Strategy → Design → Website Specification → Generation → Build → Preview → Deployment.
+
+### Product implementation
+
+Studio now exposes the existing build planner and executor, shows isolation and diagnostics, and prevents Preview/Deployment navigation until a build succeeds. No generated code executes in the Studio/API process.
+
+### Architecture and technology decision
+
+CAP-015 intentionally reuses the existing Docker disposable execution boundary rather than adding Kubernetes, hosted CI, a worker queue or another runtime. Docker is sufficient for the first executable MVP and preserves the existing adapter boundary for future hosted execution. Direct host execution remains prohibited.
+
+### Documentation
+
+See [CAP-015](cap-015-studio.md) and [ADR-0013](adr/ADR-0013-executable-mvp-build-gate.md).
