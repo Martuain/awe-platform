@@ -122,3 +122,14 @@ First-class deployment state, history, live URL and stop/redeploy lifecycle usin
 - [x] Improved generated-site presentation
 - [ ] Hosted/scalable execution
 - [ ] Production cloud deployment provider
+
+## CAP-018 + MVP v1.0 — Release Gate
+- [x] Canonical repository MVP gate
+- [x] Local executable stack command
+- [x] MVP release criteria documented
+- [x] Technology decisions and post-MVP deferrals documented
+- [x] MVP release ADR
+
+### MVP v1.0 status
+- Release candidate: **ready for owner validation**
+- Production SaaS readiness: **not claimed**

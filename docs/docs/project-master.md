@@ -1965,3 +1965,50 @@ See [CAP-015](cap-015-studio.md) and [ADR-0013](adr/ADR-0013-executable-mvp-buil
 - [ ] Artifact registry
 
 See `docs/cap-016-017-studio.md` for the complete decision record and `docs/changelog-cap-016-017.md` for the implementation delta.
+
+------------------------------------------------------------------------
+
+## CAP-018 + MVP v1.0 — Executable MVP Release Gate
+
+CAP-018 consolidates MVP hardening and the first release gate rather than creating another isolated capability.
+
+### Release objective
+
+The MVP definition is now **a complete executable local product loop**, not production-scale SaaS infrastructure.
+
+### Canonical validation
+
+```text
+pnpm mvp:gate
+    ├── pnpm lint
+    ├── pnpm build
+    └── pnpm test
+```
+
+### Local executable stack
+
+```text
+docker compose up --build
+        │
+        ├── Studio :3000
+        ├── API :8000
+        ├── PostgreSQL :5432
+        └── Redis :6379
+```
+
+### MVP release criteria
+
+- Clean install succeeds.
+- Lint, build and tests are green.
+- Studio production build succeeds.
+- API tests pass on Python 3.12+.
+- Core lifecycle is executable from Discovery through Deployment.
+- Human approval gates remain in place.
+- Build execution remains isolated.
+- No unresolved release-blocking defects.
+
+### Deferred by decision
+
+Authentication, multi-tenancy, hosted/scalable workers, production cloud deployment, billing, collaboration, additional frameworks and full production observability are explicitly post-MVP.
+
+See `docs/cap-018-mvp-v1.0-release-gate.md` and ADR-0014 for the complete decision record.

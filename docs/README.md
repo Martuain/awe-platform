@@ -51,3 +51,20 @@ This is an implementation baseline, not a finished SaaS product.
 ## Current milestone
 
 **CAP-013 — Project Lifecycle & Workspace UX** establishes project lifecycle state and a derived workspace summary for resuming and understanding AWE projects.
+
+## MVP v1.0 quick start
+
+```bash
+pnpm install
+pnpm mvp:gate
+pnpm mvp:up
+```
+
+Studio: http://localhost:3000  
+API: http://localhost:8000
+
+Stop the local stack with:
+
+```bash
+pnpm mvp:down
+```

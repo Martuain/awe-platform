@@ -73,3 +73,12 @@ These changes address the local `pnpm lint` and `pnpm test` failures reported af
 
 - Added first-class Studio Build stage and explicit execution gate.
 - Reused existing Docker isolation boundary; no new infrastructure introduced.
+
+## CAP-018 + MVP v1.0 — Executable MVP Release Gate
+
+- Added a canonical `pnpm mvp:gate` release verification command.
+- Added `pnpm mvp:up` and `pnpm mvp:down` local runtime commands.
+- Defined the first executable MVP release criteria.
+- Documented MVP technology decisions and explicit post-MVP deferrals.
+- Added ADR-0014 for the MVP release-gate decision.
+- Root package version advanced to 1.0.0; Studio advanced to 1.8.0.
