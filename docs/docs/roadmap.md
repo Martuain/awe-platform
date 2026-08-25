@@ -100,3 +100,6 @@ First-class deployment state, history, live URL and stop/redeploy lifecycle usin
 - [x] Lifecycle/workspace test coverage
 - [ ] Authentication and authorization
 - [ ] Multi-tenancy and collaboration
+
+
+- **CAP-014:** Project duplication / fresh workspace templates — implemented.

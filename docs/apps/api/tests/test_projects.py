@@ -34,3 +34,14 @@ def test_project_workspace_can_be_listed_and_resumed():
         restored = client.patch(f"/api/v1/projects/{project['id']}", json={"status": "active"})
         assert restored.status_code == 200
         assert restored.json()["status"] == "active"
+
+
+def test_duplicate_project(client):
+    created = client.post("/api/v1/projects", json={"name": "Original"}).json()
+    duplicated = client.post(f"/api/v1/projects/{created['id']}/duplicate", json={"name": "Original Copy"})
+    assert duplicated.status_code == 201
+    body = duplicated.json()
+    assert body["name"] == "Original Copy"
+    assert body["id"] != created["id"]
+    workspace = client.get(f"/api/v1/projects/{body['id']}/workspace").json()
+    assert workspace["completed_capabilities"] == []

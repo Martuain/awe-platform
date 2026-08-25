@@ -61,3 +61,9 @@ These changes address the local `pnpm lint` and `pnpm test` failures reported af
 - Extended workspace summaries with progress, next capability and last activity.
 - Added Studio workspace status/progress presentation.
 - Added CAP-013 documentation and ADR-0011.
+
+
+## CAP-014 — Project Duplication & Fresh Workspace Templates
+- Added project duplication endpoint and repository support.
+- Duplication creates a clean workspace with a new identity.
+- Added API regression coverage and ADR-0012.

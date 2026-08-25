@@ -1924,3 +1924,9 @@ The project is moving from a sequence of capability demos toward a coherent prod
 Authentication/authorization, multi-tenancy, collaborators/roles, deletion and retention policy, large-scale project search/filtering, activity/event timelines and project settings remain deferred.
 
 See [CAP-013](cap-013-studio.md) and [ADR-0011](adr/ADR-0011-project-lifecycle-workspace-ux.md).
+
+
+## CAP-014 — Project Duplication & Fresh Workspace Templates
+**Status:** Implemented / pending local green gate
+
+CAP-014 adds `POST /api/v1/projects/{project_id}/duplicate`. Duplication creates a new project identity and clean workspace while leaving the source unchanged. We deliberately do not deep-clone capability artifacts or deployment history. This avoids coupling duplication to the current persistence schema and prevents accidental reuse of deployment/runtime state. The existing Repository abstraction is retained; no new technology was introduced. See ADR-0012.

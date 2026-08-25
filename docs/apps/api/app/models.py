@@ -31,6 +31,10 @@ class UpdateProjectRequest(BaseModel):
     status: ProjectStatus
 
 
+class DuplicateProjectRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+
+
 class WorkspaceSummary(BaseModel):
     project: Project
     current_stage: str

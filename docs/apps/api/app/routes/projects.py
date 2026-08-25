@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 
-from app.models import CreateProjectRequest, Project, ProjectStatus, UpdateProjectRequest, WorkspaceSummary
+from app.models import CreateProjectRequest, DuplicateProjectRequest, Project, ProjectStatus, UpdateProjectRequest, WorkspaceSummary
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -96,6 +96,15 @@ async def get_workspace(project_id: UUID, http_request: Request):
         next_capability=next_capability,
         last_activity_at=last_activity,
     )
+
+
+@router.post("/{project_id}/duplicate", response_model=Project, status_code=201)
+async def duplicate_project(project_id: UUID, request: DuplicateProjectRequest, http_request: Request):
+    repository = http_request.app.state.repository
+    try:
+        return await repository.duplicate_project(project_id, request.name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
 
 
 @router.get("/{project_id}", response_model=Project)

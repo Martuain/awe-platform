@@ -175,6 +175,7 @@ class Repository:
     async def get_project(self, project_id: UUID) -> Project | None: ...
     async def list_projects(self) -> list[Project]: ...
     async def update_project(self, project_id: UUID, status: ProjectStatus) -> Project: ...
+    async def duplicate_project(self, project_id: UUID, name: str | None = None) -> Project: ...
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext: ...
     async def get_context(self, project_id: UUID) -> DiscoveryContext | None: ...
     async def append_message(self, project_id: UUID, message: str) -> DiscoveryContext: ...
@@ -226,6 +227,14 @@ class InMemoryRepository(Repository):
         updated = project.model_copy(update={"status": status}, deep=True)
         self.projects[project_id] = updated
         return updated.model_copy(deep=True)
+
+    async def duplicate_project(self, project_id: UUID, name: str | None = None) -> Project:
+        source = self.projects.get(project_id)
+        if not source:
+            raise KeyError(project_id)
+        project = Project(name=name or f"{source.name} Copy")
+        self.projects[project.id] = project
+        return project.model_copy(deep=True)
 
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext:
         context = DiscoveryContext(project_id=project_id, session_id=uuid4())
@@ -371,6 +380,16 @@ class SqlAlchemyRepository(Repository):
             row.status = status.value
             await session.commit()
             project = Project(id=UUID(row.id), name=row.name, status=ProjectStatus(row.status), created_at=row.created_at)
+        return project
+
+    async def duplicate_project(self, project_id: UUID, name: str | None = None) -> Project:
+        source = await self.get_project(project_id)
+        if not source:
+            raise KeyError(project_id)
+        project = Project(name=name or f"{source.name} Copy")
+        async with self.session_factory() as session:
+            session.add(ProjectRow(id=str(project.id), name=project.name, status=project.status.value, created_at=project.created_at))
+            await session.commit()
         return project
 
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext:
