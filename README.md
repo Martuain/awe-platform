@@ -47,3 +47,24 @@ API docs: http://localhost:8000/docs
 
 This is an implementation baseline, not a finished SaaS product.
 \n\n## Validation prerequisites\n\nThe repository contains a Python API test suite. Install the API dependencies before running the full test command:\n\n```bash\npython3 -m pip install -r apps/api/requirements.txt\npnpm build\npnpm lint\npnpm test\n```\n\nGitHub CI provisions Python automatically.\n
+
+## Current milestone
+
+**CAP-018 + CAP-001 Discovery Hardening** — MVP v1.0 release gate plus Business Discovery v1.1 fixes for natural-language extraction, multi-turn knowledge accumulation and dynamic open questions.
+
+## MVP v1.0 quick start
+
+```bash
+pnpm install
+pnpm mvp:gate
+pnpm mvp:up
+```
+
+Studio: http://localhost:3000  
+API: http://localhost:8000
+
+Stop the local stack with:
+
+```bash
+pnpm mvp:down
+```

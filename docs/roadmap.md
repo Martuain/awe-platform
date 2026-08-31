@@ -23,7 +23,7 @@
 - [x] Content strategy baseline
 - [x] Design direction baseline
 - [ ] Strategy evaluation
-- [ ] Strategy revision workflow
+- [x] Strategy revision workflow
 - [ ] Studio strategy review UI
 - [ ] Production model adapter
 - [ ] Migration hardening

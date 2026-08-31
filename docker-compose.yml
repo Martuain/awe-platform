@@ -34,7 +34,9 @@ services:
         condition: service_started
 
   studio:
-    build: ./apps/studio
+    build:
+      context: .
+      dockerfile: apps/studio/Dockerfile
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:

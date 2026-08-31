@@ -1,5 +1,17 @@
 ## Unreleased
 
+## CAP-001 — Business Discovery v1.1 Hardening
+
+- Reworked deterministic Discovery extraction to recognize natural-language business goals instead of relying only on fixed keywords.
+- Preserve Business Knowledge across conversation turns rather than replacing previously captured goals.
+- Added extraction for target audience and value proposition when explicitly provided.
+- Made Discovery open questions dynamic; the API no longer repeats a hard-coded primary-goal question after every message.
+- Keep industry + at least one goal as the MVP approval gate; optional audience/value proposition evidence is retained without unnecessarily blocking approval.
+- Added regression coverage for natural-language goals, multi-turn accumulation, optional knowledge capture and post-approval immutability.
+- Added Python 3.9-safe future annotations to API modules using PEP 604 union syntax; Docker remains on Python 3.12.
+- API test suite: 18 passed.
+
+
 ### Added
 - CAP-004 Website Specification capability and Studio review/approval flow.
 - Structured page-level implementation requirements, global components, SEO, accessibility, responsive, technical and acceptance criteria.
@@ -10,6 +22,14 @@
 - Visual direction presentation covering palette, typography, imagery, components, accessibility and rationale.
 
 # Changelog
+
+## CAP-002 — Strategy revision hardening
+
+- Fixed natural-language Website Strategy revisions so supported positioning and primary CTA requests change the generated strategy rather than only recording feedback.
+- Preserved explicit `CTA: ...` revision syntax for backwards compatibility.
+- Kept strategy revisions versioned and re-evaluated against the approved Business Discovery context.
+- Synchronized homepage/contact CTAs when the primary conversion action is revised.
+- Added regression coverage for natural-language and explicit CTA revision flows.
 
 ## CAP-003 v0.1.1 — Deployment Hardening
 
@@ -43,3 +63,42 @@ These changes address the local `pnpm lint` and `pnpm test` failures reported af
 - Added safe HTML preview rendered in Studio without executing generated application code.
 - Added CAP-006 Studio Preview stage and API test coverage.
 - Deferred isolated generated-project execution to a future sandbox/build-runner capability.
+
+
+## CAP-012 — Project Persistence & Workspace Model
+
+- Added persistent project listing and workspace summary API.
+- Formalized projects as the persistent workspace root.
+- Preserved Repository abstraction and SQLAlchemy/PostgreSQL boundary.
+- Added ADR-0010 and CAP-012 documentation.
+- Deferred authentication, tenancy, object storage and migration tooling.
+
+
+## CAP-013 — Project Lifecycle & Workspace UX
+
+- Added active/archived project lifecycle state.
+- Added project lifecycle update API.
+- Extended workspace summaries with progress, next capability and last activity.
+- Added Studio workspace status/progress presentation.
+- Added CAP-013 documentation and ADR-0011.
+
+
+## CAP-014 — Project Duplication & Fresh Workspace Templates
+- Added project duplication endpoint and repository support.
+- Duplication creates a clean workspace with a new identity.
+- Added API regression coverage and ADR-0012.
+
+
+## CAP-015 — Executable Website Build & MVP Runtime Gate
+
+- Added first-class Studio Build stage and explicit execution gate.
+- Reused existing Docker isolation boundary; no new infrastructure introduced.
+
+## CAP-018 + MVP v1.0 — Executable MVP Release Gate
+
+- Added a canonical `pnpm mvp:gate` release verification command.
+- Added `pnpm mvp:up` and `pnpm mvp:down` local runtime commands.
+- Defined the first executable MVP release criteria.
+- Documented MVP technology decisions and explicit post-MVP deferrals.
+- Added ADR-0014 for the MVP release-gate decision.
+- Root package version advanced to 1.0.0; Studio advanced to 1.8.0.

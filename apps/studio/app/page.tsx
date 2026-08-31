@@ -2,8 +2,37 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type Stage = "discovery" | "strategy" | "design" | "specification" | "generation" | "preview";
-type Project = { id: string; name: string };
+type Deployment = {
+  project_id: string;
+  deployment_id: string;
+  generation_version: number;
+  version: number;
+  status: "queued" | "deploying" | "deployed" | "failed" | "stopped";
+  provider: string;
+  url?: string | null;
+  runtime_id?: string | null;
+  diagnostics: string[];
+  created_at: string;
+  deployed_at?: string | null;
+  stopped_at?: string | null;
+};
+
+type Stage = "discovery" | "strategy" | "design" | "specification" | "generation" | "build" | "preview" | "deployment";
+type Project = { id: string; name: string; status?: string; created_at?: string };
+type Workspace = {
+  project: Project;
+  current_stage: Stage | "archived";
+  discovery_version?: number | null;
+  strategy_version?: number | null;
+  design_version?: number | null;
+  specification_version?: number | null;
+  generation_version?: number | null;
+  deployment_count: number;
+  latest_deployment_status?: string | null;
+  completed_capabilities: string[];
+  next_capability?: string | null;
+  last_activity_at?: string | null;
+};
 type DiscoveryContext = {
   status: "collecting" | "awaiting_approval" | "approved";
   version: number;
@@ -65,6 +94,24 @@ type WebsiteValidation = {
   preview: { format: string; title: string; html: string };
 };
 
+type WebsitePreview = {
+  status: "started" | "stopped" | "failed" | "unavailable";
+  url?: string | null;
+  container_id?: string | null;
+  diagnostics: string[];
+};
+
+type WebsiteBuildPlan = {
+  project_id: string;
+  generation_version: number;
+  status: "planned" | "rejected";
+  diagnostics: string[];
+  files: string[];
+  isolation: string;
+  network_access: string;
+  allowed_commands: string[];
+};
+
 type WebsiteGeneration = {
   version: number;
   status: "generated" | "validated" | "failed";
@@ -96,6 +143,8 @@ function Score({ value }: { value: number }) {
 
 export default function Home() {
   const [project, setProject] = useState<Project | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [stage, setStage] = useState<Stage>("discovery");
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
@@ -104,17 +153,29 @@ export default function Home() {
   const [design, setDesign] = useState<DesignDirection | null>(null);
   const [specification, setSpecification] = useState<WebsiteSpecification | null>(null);
   const [generation, setGeneration] = useState<WebsiteGeneration | null>(null);
+  const [buildPlan, setBuildPlan] = useState<WebsiteBuildPlan | null>(null);
+  const [buildResult, setBuildResult] = useState<Record<string, unknown> | null>(null);
   const [validation, setValidation] = useState<WebsiteValidation | null>(null);
+  const [previewRuntime, setPreviewRuntime] = useState<WebsitePreview | null>(null);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    api<Project[]>("/api/v1/projects")
+      .then(setProjects)
+      .catch(() => undefined);
+
     const saved = window.localStorage.getItem("awe-project-id");
     if (!saved) return;
     api<Project>(`/api/v1/projects/${saved}`)
       .then(async (p) => {
         setProject(p);
+        try {
+          const w = await api<Workspace>(`/api/v1/projects/${p.id}/workspace`);
+          setWorkspace(w);
+        } catch { setWorkspace(null); }
         try {
           const c = await api<DiscoveryContext>(`/api/v1/business-discovery/context/${p.id}`);
           setContext(c);
@@ -135,10 +196,15 @@ export default function Home() {
                           const g = await api<WebsiteGeneration>(`/api/v1/website-generation/${p.id}`);
                           setGeneration(g);
                           try {
-                            const v = await api<WebsiteValidation>(`/api/v1/website-validation/validate?project_id=${p.id}`, { method: "POST" });
-                            setValidation(v);
-                            setStage("preview");
-                          } catch { setStage("generation"); }
+                            const b = await api<WebsiteBuildPlan>(`/api/v1/website-build/plan?project_id=${p.id}`, { method: "POST" });
+                            setBuildPlan(b);
+                            if (b.status !== "planned") { setStage("build"); return; }
+                            try {
+                              const v = await api<WebsiteValidation>(`/api/v1/website-validation/validate?project_id=${p.id}`, { method: "POST" });
+                              setValidation(v);
+                              setStage("preview");
+                            } catch { setStage("build"); }
+                          } catch { setStage("build"); }
                         } catch { setStage("specification"); }
                       } else { setStage("specification"); }
                     } catch { setStage("design"); }
@@ -178,7 +244,8 @@ export default function Home() {
       const p = await api<Project>("/api/v1/projects", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
       await api(`/api/v1/business-discovery/start?project_id=${p.id}`, { method: "POST" });
       const c = await api<DiscoveryContext>(`/api/v1/business-discovery/context/${p.id}`);
-      setProject(p); setContext(c); setName("");
+      setProject(p); setProjects((current) => [p, ...current.filter((item) => item.id !== p.id)]); setContext(c); setName("");
+      setWorkspace(await api<Workspace>(`/api/v1/projects/${p.id}/workspace`));
       window.localStorage.setItem("awe-project-id", p.id);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to create project"); }
     finally { setBusy(false); }
@@ -272,8 +339,103 @@ export default function Home() {
     setBusy(true); setError("");
     try {
       const g = await api<WebsiteGeneration>(`/api/v1/website-generation/generate?project_id=${project.id}`, { method: "POST" });
-      setGeneration(g); setStage("generation");
+      setGeneration(g); setStage("build");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to generate website"); }
+    finally { setBusy(false); }
+  }
+
+  async function planBuild() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const plan = await api<WebsiteBuildPlan>(`/api/v1/website-build/plan?project_id=${project.id}`, { method: "POST" });
+      setBuildPlan(plan);
+      if (plan.status !== "planned") setError(plan.diagnostics.join(" ") || "Build plan rejected");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to plan website build"); }
+    finally { setBusy(false); }
+  }
+
+  async function executeBuild() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const result = await api<Record<string, unknown>>(`/api/v1/website-build/execute?project_id=${project.id}`, { method: "POST" });
+      setBuildResult(result);
+      if (result.status !== "succeeded") {
+        setError(String(result.reason || result.stderr || "Build did not succeed."));
+        return;
+      }
+      setStage("preview");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to execute website build"); }
+    finally { setBusy(false); }
+  }
+
+  async function runToPreview() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const plan = await api<WebsiteBuildPlan>(`/api/v1/website-build/plan?project_id=${project.id}`, { method: "POST" });
+      setBuildPlan(plan);
+      if (plan.status !== "planned") throw new Error(plan.diagnostics.join(" ") || "Build plan rejected");
+      const result = await api<Record<string, unknown>>(`/api/v1/website-build/execute?project_id=${project.id}`, { method: "POST" });
+      setBuildResult(result);
+      if (result.status !== "succeeded") throw new Error(String(result.reason || result.stderr || "Build did not succeed."));
+      const validationResult = await api<WebsiteValidation>(`/api/v1/website-validation/validate?project_id=${project.id}`, { method: "POST" });
+      setValidation(validationResult);
+      if (validationResult.status !== "passed") throw new Error(validationResult.diagnostics.join(" ") || "Generated website validation failed.");
+      setStage("preview");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to complete the executable website flow"); }
+    finally { setBusy(false); }
+  }
+
+  async function startLivePreview() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const preview = await api<WebsitePreview>(`/api/v1/website-preview/start?project_id=${project.id}`, { method: "POST" });
+      setPreviewRuntime(preview);
+      if (preview.status !== "started") setError(preview.diagnostics.join(" ") || "Unable to start live preview");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to start live preview"); }
+    finally { setBusy(false); }
+  }
+
+  async function stopLivePreview() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const preview = await api<WebsitePreview | null>(`/api/v1/website-preview/stop?project_id=${project.id}`, { method: "POST" });
+      setPreviewRuntime(preview);
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to stop live preview"); }
+    finally { setBusy(false); }
+  }
+
+  async function loadDeployments(projectId = project?.id) {
+    if (!projectId) return;
+    try {
+      const result = await api<Deployment[]>(`/deployments?project_id=${projectId}`);
+      setDeployments(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load deployments.");
+    }
+  }
+
+  async function deployWebsite() {
+    if (!project) return;
+    setBusy(true); setError("");
+    try {
+      const deployment = await api<Deployment>(`/deployments?project_id=${project.id}`, { method: "POST" });
+      setDeployments((current) => [deployment, ...current.filter((item) => item.deployment_id !== deployment.deployment_id)]);
+      setStage("deployment");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to deploy website."); }
+    finally { setBusy(false); }
+  }
+
+  async function stopDeployment(deploymentId: string) {
+    setBusy(true); setError("");
+    try {
+      const deployment = await api<Deployment>(`/deployments/${deploymentId}/stop`, { method: "POST" });
+      setDeployments((current) => current.map((item) => item.deployment_id === deployment.deployment_id ? deployment : item));
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to stop deployment."); }
     finally { setBusy(false); }
   }
 
@@ -302,7 +464,20 @@ export default function Home() {
     <main className="shell">
       <header className="topbar">
         <div><span className="eyebrow">AWE Studio</span><strong>Genesis</strong></div>
-        {project && <span className="project-chip">{project.name}</span>}
+        {project ? (
+          <label className="project-switcher">
+            <span className="sr-only">Active project</span>
+            <select
+              value={project.id}
+              onChange={(event) => {
+                window.localStorage.setItem("awe-project-id", event.target.value);
+                window.location.reload();
+              }}
+            >
+              {projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+        ) : null}
       </header>
 
       <section className="hero">
@@ -311,9 +486,25 @@ export default function Home() {
         <p>AWE moves from understanding to strategy, design and eventually implementation — with evaluation and human approval at every important boundary.</p>
       </section>
 
+      {project && workspace ? (
+        <section className="workspace-bar card">
+          <div>
+            <span className="eyebrow">Project workspace</span>
+            <h2>{project.name}</h2>
+            <p>{workspace.completed_capabilities.length} capabilities completed · {workspace.deployment_count} deployment{workspace.deployment_count === 1 ? "" : "s"}</p>
+          </div>
+          <div className="workspace-meta">
+            <div><small>Status</small><strong className={`status ${project.status}`}>{project.status}</strong></div>
+            <div><small>Current stage</small><strong>{workspace.current_stage.replaceAll("_", " ")}</strong></div>
+            <div><small>Next</small><strong>{workspace.next_capability ? workspace.next_capability.replaceAll("_", " ") : "Complete"}</strong></div>
+            <div><small>Last activity</small><strong>{workspace.last_activity_at ? new Date(workspace.last_activity_at).toLocaleString() : "—"}</strong></div>
+          </div>
+        </section>
+      ) : null}
+
       <nav className="pipeline" aria-label="AWE capability pipeline">
-        {[ ["discovery", "01", "Discovery"], ["strategy", "02", "Strategy"], ["design", "03", "Design"], ["specification", "04", "Website Spec"], ["generation", "05", "Generate"], ["preview", "06", "Preview"] ].map(([key, number, label]) => (
-          <button key={key} className={stage === key ? "active" : ""} onClick={() => setStage(key as Stage)} disabled={!project || (key === "strategy" && context?.status !== "approved") || (key === "design" && strategy?.status !== "approved") || (key === "specification" && design?.status !== "approved") || (key === "generation" && specification?.status !== "approved") || (key === "preview" && !generation)}>
+        {[ ["discovery", "01", "Discovery"], ["strategy", "02", "Strategy"], ["design", "03", "Design"], ["specification", "04", "Website Spec"], ["generation", "05", "Generate"], ["build", "06", "Build"], ["preview", "07", "Preview"] ].map(([key, number, label]) => (
+          <button key={key} className={stage === key ? "active" : ""} onClick={() => setStage(key as Stage)} disabled={!project || (key === "strategy" && context?.status !== "approved") || (key === "design" && strategy?.status !== "approved") || (key === "specification" && design?.status !== "approved") || (key === "generation" && specification?.status !== "approved") || (key === "build" && !generation) || (key === "preview" && !buildResult) || (key === "deployment" && !buildResult)}>
             <span>{number}</span>{label}
           </button>
         ))}
@@ -403,7 +594,7 @@ export default function Home() {
             <div className="design-summary"><div><small>Specification source</small><strong>v{generation.source_specification_version}</strong></div><div><small>Framework</small><strong>{generation.framework}</strong></div><div><small>Pages generated</small><strong>{generation.pages_generated.length}</strong></div><div><small>Validation</small><strong>{validation?.status || "Pending"}</strong></div></div>
             <div className="strategy-grid"><div><h3>Generated pages</h3><ul>{generation.pages_generated.map((x) => <li key={x}><code>{x}</code></li>)}</ul><h3>Generation checks</h3><ul>{Object.entries(generation.validation).map(([key, value]) => <li key={key}>{key}: <strong>{String(value)}</strong></li>)}</ul></div><div><h3>Generated files</h3><div className="spec-pages">{generation.files.map((file) => <article className="spec-page" key={file.path}><div><strong>{file.path}</strong><code>{file.content.length} chars</code></div></article>)}</div></div></div>
             <div className="finding"><strong>Generation principles</strong><ul>{generation.rationale.map((x) => <li key={x}>{x}</li>)}</ul></div>
-            <div className="actions"><button className="secondary" onClick={() => setStage("specification")}>Back to Website Spec</button><button className="approve" onClick={validateWebsite} disabled={busy}>{busy ? "Validating…" : "Validate & Preview"}</button></div>
+            <div className="actions"><button className="secondary" onClick={() => setStage("specification")}>Back to Website Spec</button><button className="approve" onClick={runToPreview} disabled={busy}>{busy ? "Building & validating…" : "Build & Preview Website"}</button></div>
           </>}
         </section>
       ) : (
@@ -412,15 +603,35 @@ export default function Home() {
           {!validation ? <div className="empty large"><p>Run validation to produce the CAP-006 preview.</p><button className="primary" onClick={validateWebsite} disabled={busy}>{busy ? "Validating…" : "Validate Website"}</button></div> : <>
             <div className="design-summary"><div><small>Generation</small><strong>v{validation.generation_version}</strong></div><div><small>Validation</small><strong>{validation.status}</strong></div><div><small>Checks</small><strong>{Object.values(validation.checks).filter(Boolean).length}/{Object.keys(validation.checks).length}</strong></div><div><small>Preview</small><strong>{validation.preview.format.toUpperCase()}</strong></div></div>
             <div className="strategy-grid"><div><h3>Validation checks</h3><ul>{Object.entries(validation.checks).map(([key, value]) => <li key={key}>{key}: <strong>{value ? "PASS" : "FAIL"}</strong></li>)}</ul>{validation.diagnostics.length > 0 && <><h3>Diagnostics</h3><ul>{validation.diagnostics.map((x) => <li key={x}>{x}</li>)}</ul></>}</div><div><h3>Browser preview</h3><iframe title="AWE generated website preview" srcDoc={validation.preview.html} style={{width:"100%",height:520,border:"1px solid #ddd",borderRadius:12,background:"white"}} /></div></div>
+            <div className="finding"><strong>CAP-016 / CAP-017 MVP outcome</strong><p>The executable path now moves from approved generation through isolated build and validation into preview. Generated output also carries approved strategy and design decisions into a responsive, SEO-aware Next.js baseline.</p></div>
             <div className="finding"><strong>CAP-006 boundary</strong><p>This preview is rendered from the generated artifact and validation metadata. It does not execute arbitrary generated code inside Studio.</p></div>
-            <div className="actions"><button className="secondary" onClick={() => setStage("generation")}>Back to Generation</button><button className="approve" onClick={validateWebsite} disabled={busy}>{busy ? "Revalidating…" : "Revalidate"}</button></div>
+            <div className="finding"><strong>CAP-009 disposable runtime</strong><p>Start an isolated Docker runtime for the validated generated site. The runtime is disposable and never runs inside the AWE Studio or API process.</p>{previewRuntime?.status === "started" && previewRuntime.url ? <p><a href={previewRuntime.url} target="_blank" rel="noreferrer">Open live preview ↗</a> <button className="secondary" onClick={stopLivePreview} disabled={busy}>Stop runtime</button></p> : <button className="primary" onClick={startLivePreview} disabled={busy}>{busy ? "Starting…" : "Start live preview"}</button>}{previewRuntime?.diagnostics?.length ? <ul>{previewRuntime.diagnostics.map((x) => <li key={x}>{x}</li>)}</ul> : null}</div>
+            <div className="actions"><button className="secondary" onClick={() => setStage("generation")}>Back to Generation</button><button className="approve" onClick={deployWebsite} disabled={busy || validation?.status !== "passed"}>{busy ? "Deploying…" : "Deploy Website"}</button></div>
           </>}
+        </section>
+      )}
+
+      {stage === "deployment" && (
+        <section className="card deployment">
+          <div className="section-heading"><div><span className="eyebrow">CAP-011</span><h2>Deployment</h2><p>Promote the validated website into a versioned deployment lifecycle without coupling Studio to infrastructure.</p></div></div>
+          <div className="actions"><button className="primary" onClick={deployWebsite} disabled={busy}>{busy ? "Deploying…" : "Deploy Website"}</button><button className="secondary" onClick={() => loadDeployments()}>Refresh history</button></div>
+          <div className="spec-pages">
+            {deployments.length === 0 ? <div className="empty">No deployments yet.</div> : deployments.map((deployment) => (
+              <article className="spec-page" key={deployment.deployment_id}>
+                <div><strong>v{deployment.version} · {deployment.status}</strong><code>{deployment.provider}</code></div>
+                <p>Generation v{deployment.generation_version} · {new Date(deployment.created_at).toLocaleString()}</p>
+                {deployment.url && deployment.status === "deployed" && <p><a href={deployment.url} target="_blank" rel="noreferrer">Open live deployment ↗</a></p>}
+                {deployment.diagnostics.length > 0 && <ul>{deployment.diagnostics.map((item) => <li key={item}>{item}</li>)}</ul>}
+                {deployment.status === "deployed" && <button className="secondary" onClick={() => stopDeployment(deployment.deployment_id)} disabled={busy}>Stop deployment</button>}
+              </article>
+            ))}
+          </div>
         </section>
       )}
 
       <footer>AWE · Capability-driven · API-first · Human approval by design</footer>
       <style jsx global>{`
-        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f7f7f4;color:#151515;font-family:Arial,Helvetica,sans-serif}.shell{max-width:1180px;margin:0 auto;padding:28px 28px 64px}.topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:28px;border-bottom:1px solid #ddd}.topbar>div{display:flex;gap:10px;align-items:center}.project-chip,.status,.tags span{border:1px solid #d7d7d2;border-radius:999px;padding:7px 12px;font-size:12px;background:#fff}.hero{padding:70px 0 45px;max-width:850px}.eyebrow{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:#6a6a64}.hero h1{font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-3px;margin:18px 0}.hero p{font-size:18px;line-height:1.65;color:#555;max-width:720px}.pipeline{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:10px 0 24px}.pipeline button{border:1px solid #ddd;background:#fff;padding:16px;text-align:left;border-radius:12px;cursor:pointer}.pipeline button span{display:block;font-size:11px;color:#888;margin-bottom:8px}.pipeline button.active{border-color:#111;background:#111;color:#fff}.pipeline button:disabled{opacity:.4;cursor:not-allowed}.card{background:#fff;border:1px solid #ddd;border-radius:18px;padding:28px}.create-card{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center}.card h2{font-size:30px;margin:8px 0}.card p{color:#666;line-height:1.6}.grid{display:grid;grid-template-columns:1.6fr .8fr;gap:18px}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px}.status{color:#555;text-transform:capitalize}.status.approved{background:#e8f4e8;border-color:#b7d8b7}.status.awaiting_approval,.status.ready_for_review{background:#f5f0df}.messages{min-height:260px;border:1px solid #e4e4df;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:16px}.message{padding:13px 15px;border-radius:12px;max-width:80%;line-height:1.5}.message.user{align-self:flex-end;background:#111;color:#fff}.message.awe{align-self:flex-start;background:#f0f0ec}.empty{color:#777;padding:30px;text-align:center}.large{min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center}.composer textarea,input{width:100%;border:1px solid #ccc;border-radius:10px;padding:13px;font:inherit;background:#fff}.composer{display:grid;gap:10px}.inline-form{display:flex;gap:10px}.inline-form input{flex:1}.button,button{font:inherit}.primary,.approve,.actions button{border:0;border-radius:10px;padding:12px 16px;cursor:pointer;background:#111;color:#fff}.primary:disabled,.approve:disabled,button:disabled{opacity:.45;cursor:not-allowed}.approve{margin-top:12px;width:100%}.side-panel .score{padding:18px 0;border-bottom:1px solid #eee}.score strong{font-size:40px;display:block}.score span{font-size:12px;color:#777}.fact{padding:12px 0;border-bottom:1px solid #eee}.fact small{color:#888}.fact p{margin:5px 0;color:#222}.finding{margin-top:18px;padding:16px;border-radius:12px;background:#f5f3eb}.finding ul{margin:10px 0 0;padding-left:20px;line-height:1.7}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:20px 0}.metrics>div{padding:15px;background:#f6f6f2;border-radius:12px}.metrics strong{font-size:24px;display:block;margin-top:7px}.strategy-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:35px;margin-top:25px}.strategy-grid h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-top:22px}.pages{display:grid;gap:10px}.pages>div{border:1px solid #e3e3df;border-radius:10px;padding:15px}.pages code{float:right;color:#888}.pages p{margin-bottom:0}.tags{display:flex;gap:6px;flex-wrap:wrap}.actions{display:flex;gap:10px;align-items:center;margin-top:22px}.actions .inline-form{flex:1}.actions .approve{width:auto;margin:0}.error{margin:14px 0;padding:13px 15px;background:#f8e8e8;border:1px solid #e3bcbc;border-radius:10px;color:#7d2929}footer{padding:40px 0 0;color:#888;font-size:12px}.design-summary{display:grid;grid-template-columns:.7fr 1.5fr .8fr .8fr;gap:8px;margin:20px 0}.design-summary>div{padding:16px;background:#f6f6f2;border-radius:12px}.design-summary small{display:block;color:#888;margin-bottom:7px}.design-summary strong{font-size:18px}.design-grid{display:grid;grid-template-columns:1fr 1fr;gap:35px;margin-top:25px}.design-grid h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:24px 0 10px}.design-grid ul{margin:0;padding-left:20px;line-height:1.7;color:#444}.palette{display:grid;gap:8px}.palette>div{display:grid;grid-template-columns:18px 100px 1fr;gap:10px;align-items:center;padding:10px;border:1px solid #e3e3df;border-radius:10px}.palette span{width:18px;height:18px;border-radius:50%;background:#d8d8d2;border:1px solid #bbb}.palette small{color:#777;text-transform:capitalize}.palette strong{font-size:13px;font-weight:500}.secondary{border:1px solid #ccc;border-radius:10px;padding:12px 16px;cursor:pointer;background:#fff;color:#222}.actions .secondary{margin:0}.actions .approve{width:auto;margin:0}.design .finding{margin-top:24px}.spec-pages{display:grid;gap:12px;margin-top:22px}.spec-page{border:1px solid #e3e3df;border-radius:12px;padding:18px}.spec-page>div:first-child{display:flex;justify-content:space-between}.spec-page code{color:#888}.spec-page p{margin:10px 0 16px}.spec-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.spec-columns small{color:#888;text-transform:uppercase;letter-spacing:1px;font-size:10px}.spec-columns ul{margin:8px 0 0;padding-left:18px;line-height:1.6;color:#444}@media(max-width:800px){.create-card,.grid,.strategy-grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.pipeline{grid-template-columns:1fr}.inline-form,.actions{flex-direction:column}.hero h1{letter-spacing:-2px}.actions .approve{width:100%}}
+        :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f7f7f4;color:#151515;font-family:Arial,Helvetica,sans-serif}.shell{max-width:1180px;margin:0 auto;padding:28px 28px 64px}.topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:28px;border-bottom:1px solid #ddd}.topbar>div{display:flex;gap:10px;align-items:center}.project-chip,.status,.tags span{border:1px solid #d7d7d2;border-radius:999px;padding:7px 12px;font-size:12px;background:#fff}.hero{padding:70px 0 45px;max-width:850px}.eyebrow{font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:#6a6a64}.hero h1{font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-3px;margin:18px 0}.hero p{font-size:18px;line-height:1.65;color:#555;max-width:720px}.pipeline{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:10px 0 24px}.pipeline button{border:1px solid #ddd;background:#fff;padding:16px;text-align:left;border-radius:12px;cursor:pointer}.pipeline button span{display:block;font-size:11px;color:#888;margin-bottom:8px}.pipeline button.active{border-color:#111;background:#111;color:#fff}.pipeline button:disabled{opacity:.4;cursor:not-allowed}.card{background:#fff;border:1px solid #ddd;border-radius:18px;padding:28px}.create-card{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center}.card h2{font-size:30px;margin:8px 0}.card p{color:#666;line-height:1.6}.grid{display:grid;grid-template-columns:1.6fr .8fr;gap:18px}.section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:20px}.status{color:#555;text-transform:capitalize}.status.approved{background:#e8f4e8;border-color:#b7d8b7}.status.awaiting_approval,.status.ready_for_review{background:#f5f0df}.messages{min-height:260px;border:1px solid #e4e4df;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:16px}.message{padding:13px 15px;border-radius:12px;max-width:80%;line-height:1.5}.message.user{align-self:flex-end;background:#111;color:#fff}.message.awe{align-self:flex-start;background:#f0f0ec}.empty{color:#777;padding:30px;text-align:center}.large{min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center}.composer textarea,input{width:100%;border:1px solid #ccc;border-radius:10px;padding:13px;font:inherit;background:#fff}.composer{display:grid;gap:10px}.inline-form{display:flex;gap:10px}.inline-form input{flex:1}.button,button{font:inherit}.primary,.approve,.actions button{border:0;border-radius:10px;padding:12px 16px;cursor:pointer;background:#111;color:#fff}.primary:disabled,.approve:disabled,button:disabled{opacity:.45;cursor:not-allowed}.approve{margin-top:12px;width:100%}.side-panel .score{padding:18px 0;border-bottom:1px solid #eee}.score strong{font-size:40px;display:block}.score span{font-size:12px;color:#777}.fact{padding:12px 0;border-bottom:1px solid #eee}.fact small{color:#888}.fact p{margin:5px 0;color:#222}.finding{margin-top:18px;padding:16px;border-radius:12px;background:#f5f3eb}.finding ul{margin:10px 0 0;padding-left:20px;line-height:1.7}.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:20px 0}.metrics>div{padding:15px;background:#f6f6f2;border-radius:12px}.metrics strong{font-size:24px;display:block;margin-top:7px}.strategy-grid{display:grid;grid-template-columns:.8fr 1.2fr;gap:35px;margin-top:25px}.strategy-grid h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;margin-top:22px}.pages{display:grid;gap:10px}.pages>div{border:1px solid #e3e3df;border-radius:10px;padding:15px}.pages code{float:right;color:#888}.pages p{margin-bottom:0}.tags{display:flex;gap:6px;flex-wrap:wrap}.actions{display:flex;gap:10px;align-items:center;margin-top:22px}.actions .inline-form{flex:1}.actions .approve{width:auto;margin:0}.build pre{white-space:pre-wrap;max-height:220px;overflow:auto;background:#f6f6f2;padding:12px;border-radius:10px;font-size:11px}.error{margin:14px 0;padding:13px 15px;background:#f8e8e8;border:1px solid #e3bcbc;border-radius:10px;color:#7d2929}footer{padding:40px 0 0;color:#888;font-size:12px}.design-summary{display:grid;grid-template-columns:.7fr 1.5fr .8fr .8fr;gap:8px;margin:20px 0}.design-summary>div{padding:16px;background:#f6f6f2;border-radius:12px}.design-summary small{display:block;color:#888;margin-bottom:7px}.design-summary strong{font-size:18px}.design-grid{display:grid;grid-template-columns:1fr 1fr;gap:35px;margin-top:25px}.design-grid h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;margin:24px 0 10px}.design-grid ul{margin:0;padding-left:20px;line-height:1.7;color:#444}.palette{display:grid;gap:8px}.palette>div{display:grid;grid-template-columns:18px 100px 1fr;gap:10px;align-items:center;padding:10px;border:1px solid #e3e3df;border-radius:10px}.palette span{width:18px;height:18px;border-radius:50%;background:#d8d8d2;border:1px solid #bbb}.palette small{color:#777;text-transform:capitalize}.palette strong{font-size:13px;font-weight:500}.secondary{border:1px solid #ccc;border-radius:10px;padding:12px 16px;cursor:pointer;background:#fff;color:#222}.actions .secondary{margin:0}.actions .approve{width:auto;margin:0}.design .finding{margin-top:24px}.spec-pages{display:grid;gap:12px;margin-top:22px}.spec-page{border:1px solid #e3e3df;border-radius:12px;padding:18px}.spec-page>div:first-child{display:flex;justify-content:space-between}.spec-page code{color:#888}.spec-page p{margin:10px 0 16px}.deployment .actions{margin-bottom:22px}.deployment a{color:#111;text-decoration:underline}.spec-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.spec-columns small{color:#888;text-transform:uppercase;letter-spacing:1px;font-size:10px}.spec-columns ul{margin:8px 0 0;padding-left:18px;line-height:1.6;color:#444}.workspace-bar{display:grid;grid-template-columns:1fr 1.8fr;gap:24px;align-items:center;margin:0 0 20px}.workspace-bar h2{margin:6px 0;font-size:22px}.workspace-bar p{margin:0;color:#666}.workspace-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.workspace-meta>div{padding:12px;background:#f6f6f2;border-radius:10px}.workspace-meta small{display:block;color:#888;font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}.workspace-meta strong{font-size:13px;text-transform:capitalize}.status.archived{background:#eee;border-color:#ccc}@media(max-width:800px){.workspace-bar{grid-template-columns:1fr}.workspace-meta{grid-template-columns:repeat(2,1fr)}}@media(max-width:800px){.create-card,.grid,.strategy-grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.pipeline{grid-template-columns:1fr}.inline-form,.actions{flex-direction:column}.hero h1{letter-spacing:-2px}.actions .approve{width:100%}}
       `}</style>
     </main>
   );

@@ -99,20 +99,83 @@ class WebsiteStrategyService:
             raise ValueError("Website strategy did not pass evaluation")
         return await self.repository.approve_strategy(project_id)
 
+    @staticmethod
+    def apply_revision_feedback(strategy: WebsiteStrategy, feedback: str) -> None:
+        """Apply the supported deterministic revision instructions to a strategy.
+
+        CAP-002 deliberately remains provider-independent. This parser supports
+        explicit CTA syntax plus a small set of natural-language instructions
+        that are meaningful for the current vertical slice. A future model-based
+        revision agent can replace this method without changing the lifecycle
+        or persistence contract.
+        """
+        normalized = feedback.lower().strip()
+
+        # Preserve the original explicit syntax: ``CTA: Book a consultation``.
+        if "cta:" in normalized:
+            cta = feedback.split(":", 1)[1].strip()
+            if cta:
+                WebsiteStrategyService._set_primary_cta(strategy, cta)
+            return
+
+        # Natural-language CTA requests.
+        requests_consultation = (
+            "primary conversion action" in normalized
+            or "primary cta" in normalized
+            or "call to action" in normalized
+            or "cta" in normalized
+        ) and "consultation" in normalized
+
+        if requests_consultation:
+            WebsiteStrategyService._set_primary_cta(strategy, "Request a consultation")
+        elif (
+            "primary conversion action" in normalized
+            or "primary cta" in normalized
+            or "call to action" in normalized
+        ) and "contact" in normalized:
+            WebsiteStrategyService._set_primary_cta(strategy, "Contact us")
+
+        # Natural-language positioning requests.
+        if "positioning" in normalized and "b2b" in normalized:
+            if "decision-maker" in normalized or "decision maker" in normalized or "decisionmakers" in normalized:
+                strategy.content.positioning = (
+                    "Help B2B marketing decision-makers identify and act on "
+                    "opportunities to improve commercial growth."
+                )
+                strategy.content.key_messages[0] = (
+                    "Designed for B2B marketing decision-makers."
+                )
+            else:
+                strategy.content.positioning = (
+                    "Help B2B customers understand and act on marketing "
+                    "opportunities that support commercial growth."
+                )
+                strategy.content.key_messages[0] = "Designed for B2B customers."
+
+    @staticmethod
+    def _set_primary_cta(strategy: WebsiteStrategy, cta: str) -> None:
+        strategy.content.primary_cta = cta
+        for page in strategy.sitemap:
+            if page.path == "/":
+                page.primary_cta = cta
+            elif page.path == "/contact":
+                page.primary_cta = cta
+
     async def revise(self, project_id, feedback: str) -> WebsiteStrategy:
         context = await self.repository.get_context(project_id)
         strategy = await self.get(project_id)
         if strategy.status == StrategyStatus.APPROVED:
             raise ValueError("Approved website strategy is immutable")
+
         revised = strategy.model_copy(deep=True)
         revised.strategy_id = uuid4()
         revised.version += 1
         revised.status = StrategyStatus.READY_FOR_REVIEW
         revised.approved_at = None
         revised.revision_feedback.append(feedback)
+        self.apply_revision_feedback(revised, feedback)
         revised.rationale.append(f"Revision incorporated user feedback: {feedback}")
-        if "cta" in feedback.lower() and revised.content.primary_cta:
-            revised.content.primary_cta = feedback.split(":", 1)[1].strip() if ":" in feedback else revised.content.primary_cta
+
         if context:
             revised.evaluation = self.evaluate(revised, context)
         return await self.repository.create_strategy(revised)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID, uuid4
@@ -7,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class ProjectStatus(str, Enum):
     ACTIVE = "active"
+    ARCHIVED = "archived"
 
 
 class DiscoveryStatus(str, Enum):
@@ -24,6 +27,29 @@ class Project(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
+
+class UpdateProjectRequest(BaseModel):
+    status: ProjectStatus
+
+
+class DuplicateProjectRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+
+
+class WorkspaceSummary(BaseModel):
+    project: Project
+    current_stage: str
+    discovery_version: int | None = None
+    strategy_version: int | None = None
+    design_version: int | None = None
+    specification_version: int | None = None
+    generation_version: int | None = None
+    deployment_count: int = 0
+    latest_deployment_status: str | None = None
+    completed_capabilities: list[str] = Field(default_factory=list)
+    next_capability: str | None = None
+    last_activity_at: datetime | None = None
 
 
 class DiscoveryMessageRequest(BaseModel):
@@ -210,6 +236,47 @@ class WebsiteGeneration(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+
+
+
+class DeploymentStatus(str, Enum):
+    QUEUED = "queued"
+    DEPLOYING = "deploying"
+    DEPLOYED = "deployed"
+    FAILED = "failed"
+    STOPPED = "stopped"
+
+
+class WebsiteDeployment(BaseModel):
+    project_id: UUID
+    deployment_id: UUID = Field(default_factory=uuid4)
+    generation_version: int
+    version: int = 1
+    status: DeploymentStatus = DeploymentStatus.QUEUED
+    provider: str = "local"
+    url: str | None = None
+    runtime_id: str | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    deployed_at: datetime | None = None
+    stopped_at: datetime | None = None
+
+class WebsitePreviewStatus(str, Enum):
+    STARTED = "started"
+    STOPPED = "stopped"
+    FAILED = "failed"
+    UNAVAILABLE = "unavailable"
+
+
+class WebsitePreview(BaseModel):
+    project_id: UUID
+    preview_id: UUID = Field(default_factory=uuid4)
+    generation_version: int
+    status: WebsitePreviewStatus
+    url: str | None = None
+    container_id: str | None = None
+    diagnostics: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class WebsiteBuildStatus(str, Enum):

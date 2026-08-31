@@ -1,10 +1,6 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
 
 
-def test_project_workspace_can_be_listed_and_resumed():
-    with TestClient(app) as client:
+def test_project_workspace_can_be_listed_and_resumed(client):
         created = client.post("/api/v1/projects", json={"name": "CAP-013 Workspace"})
         assert created.status_code == 201
         project = created.json()

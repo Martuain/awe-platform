@@ -14,6 +14,26 @@
 **Current milestone:** CAP-016 + CAP-017 --- End-to-End Executable Flow & Website Quality Baseline\
 **Status:** Living master document
 
+### Latest Discovery hardening
+
+CAP-001 Discovery v1.1 addresses the first real end-to-end Studio issue found
+during MVP validation: the Discovery loop could repeatedly ask for the
+primary business goal even when the user had already supplied it in natural
+language.
+
+The deterministic mock gateway now extracts evidence from natural-language
+goal statements, accumulates knowledge across turns, retains previously
+captured goals, and captures audience/value-proposition information when
+explicitly supplied. Open questions are derived from the minimum required
+Discovery fields rather than a hard-coded prompt.
+
+For the MVP gate, **industry + at least one business goal** remain the minimum
+required fields. Audience and value proposition are useful evidence but do
+not block approval when unavailable.
+
+The API regression suite validates these behaviors and the existing full
+suite passes locally in the validation environment.
+
 ## 1. Executive status
 
 AWE is being developed as an AI-powered platform for automated website
@@ -2012,3 +2032,18 @@ docker compose up --build
 Authentication, multi-tenancy, hosted/scalable workers, production cloud deployment, billing, collaboration, additional frameworks and full production observability are explicitly post-MVP.
 
 See `docs/cap-018-mvp-v1.0-release-gate.md` and ADR-0014 for the complete decision record.
+
+## CAP-002 Revision Semantics Hardening — 2026-08-29
+
+The CAP-002 revision endpoint was revalidated against the real natural-language feedback contract. The previous implementation created a new strategy version and recorded feedback, but only applied CTA changes when feedback used the special `CTA: ...` syntax. Natural-language requests therefore produced a new version without changing the requested strategy content.
+
+The revision path now applies a deterministic, provider-independent subset of actionable feedback before re-evaluation:
+
+- natural-language B2B positioning requests update the positioning and audience-facing key message;
+- natural-language consultation requests update the primary CTA;
+- the revised CTA is synchronized to the Home and Contact sitemap pages;
+- the existing explicit `CTA: ...` syntax remains supported;
+- every revision still receives a new `strategy_id`, increments the version and preserves the approved Discovery source-context version;
+- approved strategies remain immutable and reject later revisions with HTTP 409.
+
+Regression coverage now includes both explicit and natural-language revision paths and verifies that the relevant strategy content actually changes, rather than merely recording the feedback. This remains deterministic for CAP-002; a future model-based revision agent can be introduced behind the same transformation boundary once its behavior is testable.
