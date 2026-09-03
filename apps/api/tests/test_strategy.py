@@ -162,3 +162,45 @@ def test_strategy_revision_explicit_cta_syntax_remains_supported():
         assert revised.json()["sitemap"][0]["primary_cta"] == "Book a consultation"
         assert revised.json()["sitemap"][3]["primary_cta"] == "Book a consultation"
 
+
+
+def test_strategy_derives_short_cta_from_business_goal():
+    with TestClient(app) as client:
+        project = client.post("/api/v1/projects", json={"name": "Coffee Strategy"}).json()
+        project_id = project["id"]
+        client.post(f"/api/v1/business-discovery/start?project_id={project_id}")
+        client.post(
+            "/api/v1/business-discovery/message",
+            json={"project_id": project_id, "message": "We are a coffee shop. The business name is E2E Coffee Studio."},
+        )
+        complete = client.post(
+            "/api/v1/business-discovery/message",
+            json={
+                "project_id": project_id,
+                "message": "The main goal of the website is to build the brand, showcase the menu and atmosphere, and encourage people to visit the shop.",
+            },
+        )
+        assert complete.status_code == 200
+        client.post(f"/api/v1/business-discovery/approve/{project_id}")
+
+        response = client.post(f"/api/v1/website-strategy/generate?project_id={project_id}")
+        assert response.status_code == 201
+        body = response.json()
+        assert body["content"]["primary_cta"] == "Visit us"
+        assert body["sitemap"][0]["primary_cta"] == "Visit us"
+
+
+def test_strategy_uses_hospitality_page_vocabulary():
+    with TestClient(app) as client:
+        pid = client.post("/api/v1/projects", json={"name": "Hospitality Strategy"}).json()["id"]
+        client.post(f"/api/v1/business-discovery/start?project_id={pid}")
+        client.post("/api/v1/business-discovery/message", json={
+            "project_id": pid,
+            "message": "We are a specialty coffee shop called North Star Café. We welcome local customers and want the website to showcase our menu and encourage visits.",
+        })
+        client.post(f"/api/v1/business-discovery/approve/{pid}")
+        body = client.post(f"/api/v1/website-strategy/generate?project_id={pid}").json()
+        pages = {page["path"]: page for page in body["sitemap"]}
+        assert pages["/services"]["name"] == "Menu & Coffee"
+        assert "menu" in pages["/services"]["objective"].lower()
+        assert pages["/contact"]["primary_cta"] == "Visit us"

@@ -11,28 +11,31 @@
 
 ### M1 Business Discovery
 - [x] PostgreSQL persistence
-- [ ] AI model gateway
-- [ ] Conversational loop
-- [ ] Context extraction
-- [ ] Evaluation
-- [ ] Human approval
+- [x] Provider-neutral model gateway boundary with deterministic mock
+- [x] Conversational discovery loop
+- [x] Structured context extraction
+- [x] Minimum completeness evaluation
+- [x] Human approval lifecycle
+- [x] Natural-language extraction and multi-turn accumulation hardening
+- [x] Discovery session initialization lifecycle hardening
 
 ### M2 Website Strategy
 - [x] Information architecture baseline
 - [x] Sitemap baseline
 - [x] Content strategy baseline
 - [x] Design direction baseline
-- [ ] Strategy evaluation
+- [x] Strategy evaluation
 - [x] Strategy revision workflow
-- [ ] Studio strategy review UI
+- [x] Studio strategy review UI
 - [ ] Production model adapter
 - [ ] Migration hardening
 
 ### M3 Website Generation
-- [ ] Single supported framework
-- [ ] Responsive UI generation
-- [ ] SEO/accessibility validation
-- [ ] Preview
+- [x] Single supported framework baseline (Next.js App Router)
+- [x] Responsive UI generation baseline
+- [x] SEO/accessibility validation baseline
+- [x] Preview
+- [x] Build → validate → preview executable flow
 
 ### M4 Deployment
 - [ ] One-click deployment
@@ -129,6 +132,8 @@ First-class deployment state, history, live URL and stop/redeploy lifecycle usin
 - [x] MVP release criteria documented
 - [x] Technology decisions and post-MVP deferrals documented
 - [x] MVP release ADR
+- [x] Fresh-project end-to-end verification through a running local deployment
+- [x] Live HTTP smoke check against the generated website
 
 ### MVP v1.0 status
 - Release candidate: **ready for owner validation**

@@ -125,6 +125,16 @@ type WebsiteGeneration = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     ...options,
@@ -132,7 +142,10 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.detail || `Request failed (${response.status})`);
+    throw new ApiError(
+      body.detail || `Request failed (${response.status})`,
+      response.status,
+    );
   }
   return response.json();
 }
@@ -162,6 +175,22 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  async function ensureDiscovery(projectId: string): Promise<DiscoveryContext> {
+    try {
+      return await api<DiscoveryContext>(
+        `/api/v1/business-discovery/context/${projectId}`,
+      );
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) {
+        throw error;
+      }
+      return await api<DiscoveryContext>(
+        `/api/v1/business-discovery/start?project_id=${projectId}`,
+        { method: "POST" },
+      );
+    }
+  }
+
   useEffect(() => {
     api<Project[]>("/api/v1/projects")
       .then(setProjects)
@@ -177,7 +206,7 @@ export default function Home() {
           setWorkspace(w);
         } catch { setWorkspace(null); }
         try {
-          const c = await api<DiscoveryContext>(`/api/v1/business-discovery/context/${p.id}`);
+          const c = await ensureDiscovery(p.id);
           setContext(c);
           if (c.status === "approved") {
             try {
@@ -242,8 +271,7 @@ export default function Home() {
     setBusy(true); setError("");
     try {
       const p = await api<Project>("/api/v1/projects", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
-      await api(`/api/v1/business-discovery/start?project_id=${p.id}`, { method: "POST" });
-      const c = await api<DiscoveryContext>(`/api/v1/business-discovery/context/${p.id}`);
+      const c = await ensureDiscovery(p.id);
       setProject(p); setProjects((current) => [p, ...current.filter((item) => item.id !== p.id)]); setContext(c); setName("");
       setWorkspace(await api<Workspace>(`/api/v1/projects/${p.id}/workspace`));
       window.localStorage.setItem("awe-project-id", p.id);
@@ -256,6 +284,11 @@ export default function Home() {
     if (!project || !message.trim()) return;
     setBusy(true); setError("");
     try {
+      // Recover the persisted Discovery lifecycle before mutating it. This is
+      // intentionally defensive: the API remains strict and never creates a
+      // session implicitly, while Studio can recover from stale UI state.
+      const current = await ensureDiscovery(project.id);
+      setContext(current);
       const c = await api<DiscoveryContext>("/api/v1/business-discovery/message", {
         method: "POST", body: JSON.stringify({ project_id: project.id, message: message.trim() }),
       });
@@ -469,9 +502,19 @@ export default function Home() {
             <span className="sr-only">Active project</span>
             <select
               value={project.id}
-              onChange={(event) => {
-                window.localStorage.setItem("awe-project-id", event.target.value);
-                window.location.reload();
+              onChange={async (event) => {
+                const projectId = event.target.value;
+                setBusy(true);
+                setError("");
+                try {
+                  await ensureDiscovery(projectId);
+                  window.localStorage.setItem("awe-project-id", projectId);
+                  window.location.reload();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Unable to switch project");
+                } finally {
+                  setBusy(false);
+                }
               }}
             >
               {projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -529,7 +572,7 @@ export default function Home() {
               {context?.open_questions?.map((item, i) => <div className="message awe" key={`${item}-${i}`}>AWE needs to know: {item}</div>)}
               {!context?.source_messages.length && <div className="empty">Tell AWE about the business, its market and what the website needs to achieve.</div>}
             </div>
-            {context?.status !== "approved" && <form onSubmit={sendMessage} className="composer"><textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Tell AWE what matters about the business…" rows={4} /><button className="primary" disabled={busy || !message.trim()}>{busy ? "Thinking…" : "Continue discovery"}</button></form>}
+            {context && context.status !== "approved" && <form onSubmit={sendMessage} className="composer"><textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Tell AWE what matters about the business…" rows={4} /><button className="primary" disabled={busy || !message.trim()}>{busy ? "Thinking…" : "Continue discovery"}</button></form>}
             {context?.status === "awaiting_approval" && <button className="approve" onClick={approveDiscovery} disabled={busy}>{busy ? "Approving…" : "Approve Business Discovery"}</button>}
           </div>
           <aside className="card side-panel"><span className="eyebrow">Knowledge captured</span><div className="score"><Score value={context?.completeness_score || 0} /><span>completeness</span></div>{knowledgeSummary.map(([key, value]) => <div className="fact" key={key}><small>{key}</small><p>{value}</p></div>)}{context?.open_questions?.length ? <div className="finding"><strong>Still needed</strong><ul>{context.open_questions.map((q) => <li key={q}>{q}</li>)}</ul></div> : null}</aside>

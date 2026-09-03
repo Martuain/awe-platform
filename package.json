@@ -1,7 +1,7 @@
 {
   "name": "awe-platform",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.2",
   "packageManager": "pnpm@10.0.0",
   "scripts": {
     "dev": "turbo dev",
@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "mvp:gate": "./mvp-gate.sh",
     "mvp:up": "docker compose up --build",
-    "mvp:down": "docker compose down"
+    "mvp:down": "docker compose down",
+    "e2e:mvp": "python3 scripts/e2e-mvp.py"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

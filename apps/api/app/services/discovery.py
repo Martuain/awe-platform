@@ -27,18 +27,19 @@ class MockModelGateway:
         return json.dumps(extract_knowledge(text))
 
 
-INDUSTRIES = (
-    "architecture",
-    "marketing",
-    "restaurant",
-    "saas",
-    "fintech",
-    "ecommerce",
-    "consulting",
+INDUSTRY_ALIASES = (
+    ("restaurant", ("restaurant", "restaurants", "café", "cafe", "coffee shop", "coffeehouse", "coffee house", "bakery", "bistro")),
+    ("architecture", ("architecture", "architect", "architectural")),
+    ("marketing", ("marketing", "agency", "advertising")),
+    ("saas", ("saas", "software as a service")),
+    ("fintech", ("fintech", "financial technology")),
+    ("ecommerce", ("ecommerce", "e-commerce", "online store")),
+    ("consulting", ("consulting", "consultancy", "consultant")),
 )
 
 GOAL_PATTERNS = (
-    r"(?:primary\s+)?(?:business\s+)?goal(?:\s+for\s+(?:the\s+website|this\s+website))?\s*(?:is|would\s+be|should\s+be|:|-)?\s*(?:to\s+)?(.+?)(?:[.!?]|$)",
+    r"(?:primary|main|business)?\s*goal\s+(?:of|for)\s+(?:the\s+)?(?:website|site)\s*(?:is|would\s+be|should\s+be|:|-)?\s*(?:to\s+)?(.+?)(?:[.!?]|$)",
+    r"(?:primary\s+)?(?:business\s+)?goal\s*(?:is|would\s+be|should\s+be|:|-)?\s*(?:to\s+)?(.+?)(?:[.!?]|$)",
     r"(?:we|our\s+business)\b.*?\b(?:want|wants|need|needs|aim|aims)\s+(?:to\s+)?(.+?)(?:[.!?]|$)",
     r"(?:the\s+website\s+should|we\s+want\s+the\s+website\s+to)\s+(.+?)(?:[.!?]|$)",
 )
@@ -103,13 +104,24 @@ def extract_knowledge(message: str) -> dict:
     """
 
     lower = message.lower()
-    industry = next((candidate for candidate in INDUSTRIES if candidate in lower), None)
+    industry = next(
+        canonical
+        for canonical, aliases in INDUSTRY_ALIASES
+        if any(alias in lower for alias in aliases)
+    ) if any(alias in lower for _, aliases in INDUSTRY_ALIASES for alias in aliases) else None
 
     business_name = None
     match = re.search(
-        r"(?:called|named)\s+([A-Z][\w&.-]*(?:\s+[A-Z][\w&.-]*)*)",
+        r"(?:business\s+name|company\s+name|brand\s+name)\s*(?:is|:|-)?\s*([^.?!]+)",
         message,
+        flags=re.IGNORECASE,
     )
+    if not match:
+        match = re.search(
+            r"(?:called|named)\s+([^.?!]+)",
+            message,
+            flags=re.IGNORECASE,
+        )
     if match:
         business_name = _clean_extracted(match.group(1))
 
@@ -190,6 +202,9 @@ class DiscoveryService:
         self.gateway = gateway or MockModelGateway()
 
     async def start(self, project_id):
+        existing = await self.repository.get_context(project_id)
+        if existing:
+            return existing
         context = await self.repository.start_discovery(project_id)
         context.open_questions = [QUESTION_BY_FIELD["industry"]]
         return await self._persist_updated_context(context)

@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-import tempfile
-from pathlib import Path
 from uuid import UUID
 
 from app.models import WebsiteBuildPlan, WebsiteBuildStatus
+from app.services.docker_workspace import (
+    create_workspace_volume,
+    populate_workspace_volume,
+    remove_workspace_volume,
+)
 from app.store import Repository
 
 
@@ -17,9 +20,25 @@ ALLOWED_DEPENDENCIES = {
     "react-dom": "19.1.9",
 }
 
+DEFAULT_INSTALL_TIMEOUT_SECONDS = 300
+DEFAULT_BUILD_TIMEOUT_SECONDS = 180
+MAX_TIMEOUT_SECONDS = 600
+
+
+ALLOWED_DEV_DEPENDENCIES = {
+    "typescript": "5.8.2",
+    "@types/react": "19.1.10",
+    "@types/node": "20.17.6",
+}
+
 
 class WebsiteBuildService:
-    """Plans and executes generated-site builds inside disposable Docker sandboxes."""
+    """Plans and executes generated-site builds inside disposable Docker sandboxes.
+
+    Dependency installation gets a larger budget because a cold Docker/npm cache
+    can legitimately take a few minutes; the offline production build gets a
+    separate, tighter budget.
+    """
 
     def __init__(self, repository: Repository) -> None:
         self.repository = repository
@@ -28,102 +47,235 @@ class WebsiteBuildService:
         generation = await self.repository.get_generation(project_id)
         if not generation:
             raise KeyError("generation")
+
         if generation.status.value not in {"generated", "validated"}:
             return WebsiteBuildPlan(
                 project_id=project_id,
                 generation_version=generation.version,
                 status=WebsiteBuildStatus.REJECTED,
-                diagnostics=["Website Generation is not in an executable lifecycle state."],
+                diagnostics=[
+                    "Website Generation is not in an executable lifecycle state."
+                ],
                 files=[f.path for f in generation.files],
             )
+
         diagnostics: list[str] = []
         paths = [f.path for f in generation.files]
+
         if "package.json" not in paths:
             diagnostics.append("Generated artifact is missing package.json.")
+
         if not any(p.startswith("app/") for p in paths):
-            diagnostics.append("Generated artifact contains no Next.js App Router files.")
-        package = next((f.content for f in generation.files if f.path == "package.json"), None)
+            diagnostics.append(
+                "Generated artifact contains no Next.js App Router files."
+            )
+
+        package = next(
+            (f.content for f in generation.files if f.path == "package.json"),
+            None,
+        )
+
         if package:
             try:
                 manifest = json.loads(package)
                 dependencies = manifest.get("dependencies", {})
                 unsupported = sorted(
-                    f"{name}@{version}" for name, version in dependencies.items()
-                    if name not in ALLOWED_DEPENDENCIES or str(version) != ALLOWED_DEPENDENCIES[name]
+                    f"{name}@{version}"
+                    for name, version in dependencies.items()
+                    if name not in ALLOWED_DEPENDENCIES
+                    or str(version) != ALLOWED_DEPENDENCIES[name]
                 )
                 if unsupported:
-                    diagnostics.append(f"Unsupported runtime dependencies: {', '.join(unsupported)}")
+                    diagnostics.append(
+                        "Unsupported runtime dependencies: "
+                        + ", ".join(unsupported)
+                    )
+
+                dev_dependencies = manifest.get("devDependencies", {})
+                unsupported_dev = sorted(
+                    f"{name}@{version}"
+                    for name, version in dev_dependencies.items()
+                    if name not in ALLOWED_DEV_DEPENDENCIES
+                    or str(version) != ALLOWED_DEV_DEPENDENCIES[name]
+                )
+                if unsupported_dev:
+                    diagnostics.append(
+                        "Unsupported development dependencies: "
+                        + ", ".join(unsupported_dev)
+                    )
             except json.JSONDecodeError:
                 diagnostics.append("Generated package.json is not valid JSON.")
+
         return WebsiteBuildPlan(
             project_id=project_id,
             generation_version=generation.version,
-            status=WebsiteBuildStatus.PLANNED if not diagnostics else WebsiteBuildStatus.REJECTED,
+            status=(
+                WebsiteBuildStatus.PLANNED
+                if not diagnostics
+                else WebsiteBuildStatus.REJECTED
+            ),
+            isolation="sandbox-required",
+            runtime="nextjs-app-router",
+            workspace_strategy="docker-volume",
+            allowed_commands=["npm install", "next build", "next start"],
+            network_access="build-install-only",
             diagnostics=diagnostics,
             files=paths,
         )
 
-    async def execute(self, project_id: UUID, timeout_seconds: int = 120) -> dict[str, object]:
+    async def execute(
+        self,
+        project_id: UUID,
+        install_timeout_seconds: int = DEFAULT_INSTALL_TIMEOUT_SECONDS,
+        build_timeout_seconds: int = DEFAULT_BUILD_TIMEOUT_SECONDS,
+    ) -> dict[str, object]:
         plan = await self.plan(project_id)
+
+        if not 1 <= install_timeout_seconds <= MAX_TIMEOUT_SECONDS:
+            raise ValueError(
+                f"install_timeout_seconds must be between 1 and {MAX_TIMEOUT_SECONDS}."
+            )
+        if not 1 <= build_timeout_seconds <= MAX_TIMEOUT_SECONDS:
+            raise ValueError(
+                f"build_timeout_seconds must be between 1 and {MAX_TIMEOUT_SECONDS}."
+            )
+
         if plan.status != WebsiteBuildStatus.PLANNED:
-            return {"status": "rejected", "plan": plan.model_dump(mode="json")}
+            return {
+                "status": "rejected",
+                "plan": plan.model_dump(mode="json"),
+            }
+
         generation = await self.repository.get_generation(project_id)
         assert generation is not None
+
         if shutil.which("docker") is None:
-            return {"status": "unavailable", "reason": "Docker is required for isolated execution.", "plan": plan.model_dump(mode="json")}
+            return {
+                "status": "unavailable",
+                "reason": "Docker is required for isolated execution.",
+                "plan": plan.model_dump(mode="json"),
+            }
 
-        with tempfile.TemporaryDirectory(prefix="awe-build-") as temp:
-            workspace = Path(temp)
-            for generated in generation.files:
-                target = workspace / generated.path
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(generated.content, encoding="utf-8")
+        volume_name = create_workspace_volume("awe-build")
 
-            # Dependency acquisition is intentionally constrained and scripts are disabled.
-            install = self._docker_run(
-                workspace,
-                ["npm", "install", "--ignore-scripts", "--no-audit", "--no-fund"],
-                network="bridge",
-                timeout=timeout_seconds,
+        try:
+            populate_workspace_volume(
+                volume_name,
+                [(generated.path, generated.content) for generated in generation.files],
             )
+
+            install = self._docker_run(
+                volume_name,
+                [
+                    "npm",
+                    "install",
+                    "--ignore-scripts",
+                    "--no-audit",
+                    "--no-fund",
+                    "--cache",
+                    "/tmp/npm-cache",
+                ],
+                network="bridge",
+                timeout=install_timeout_seconds,
+            )
+
             if install.returncode != 0:
-                return {"status": "failed", "phase": "dependency-install", "stdout": install.stdout[-4000:], "stderr": install.stderr[-4000:], "plan": plan.model_dump(mode="json")}
+                return {
+                    "status": "failed",
+                    "phase": "dependency-install",
+                    "stdout": install.stdout[-4000:],
+                    "stderr": install.stderr[-4000:],
+                    "isolation": "docker",
+                    "workspace": "docker-volume",
+                    "plan": plan.model_dump(mode="json"),
+                }
 
             build = self._docker_run(
-                workspace,
+                volume_name,
                 ["npm", "run", "build"],
                 network="none",
-                timeout=timeout_seconds,
+                timeout=build_timeout_seconds,
             )
-            result: dict[str, object] = {
+
+            return {
                 "status": "succeeded" if build.returncode == 0 else "failed",
                 "phase": "build",
                 "stdout": build.stdout[-4000:],
                 "stderr": build.stderr[-4000:],
                 "isolation": "docker",
                 "network_during_build": "none",
-                "workspace": "ephemeral",
+                "workspace": "docker-volume",
                 "plan": plan.model_dump(mode="json"),
             }
-            return result
+
+        except ValueError as exc:
+            return {
+                "status": "rejected",
+                "phase": "configuration",
+                "stdout": "",
+                "stderr": str(exc),
+                "isolation": "docker",
+                "workspace": "docker-volume",
+                "plan": plan.model_dump(mode="json"),
+            }
+        except RuntimeError as exc:
+            return {
+                "status": "failed",
+                "phase": "workspace",
+                "stdout": "",
+                "stderr": str(exc),
+                "isolation": "docker",
+                "workspace": "docker-volume",
+                "plan": plan.model_dump(mode="json"),
+            }
+
+        finally:
+            remove_workspace_volume(volume_name)
 
     @staticmethod
-    def _docker_run(workspace: Path, command: list[str], network: str, timeout: int) -> subprocess.CompletedProcess[str]:
+    def _docker_run(
+        volume_name: str,
+        command: list[str],
+        network: str,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
         docker_command = [
-            "docker", "run", "--rm",
-            "--network", network,
-            "--cpus", "1",
-            "--memory", "768m",
-            "--pids-limit", "128",
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            network,
+            "--cpus",
+            "1",
+            "--memory",
+            "768m",
+            "--pids-limit",
+            "128",
             "--read-only",
-            "--tmpfs", "/tmp:rw,nosuid,nodev,noexec",
-            "-e", "NEXT_TELEMETRY_DISABLED=1",
-            "-v", f"{workspace}:/workspace:rw",
-            "-w", "/workspace",
+            "--tmpfs",
+            "/tmp:rw,nosuid,nodev,noexec",
+            "-e",
+            "NEXT_TELEMETRY_DISABLED=1",
+            "-v",
+            f"{volume_name}:/workspace:rw",
+            "-w",
+            "/workspace",
             "node:22-alpine",
             *command,
         ]
+
         try:
-            return subprocess.run(docker_command, capture_output=True, text=True, timeout=timeout, check=False)
+            return subprocess.run(
+                docker_command,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
         except subprocess.TimeoutExpired as exc:
-            return subprocess.CompletedProcess(docker_command, 124, exc.stdout or "", f"Execution timed out after {timeout}s")
+            return subprocess.CompletedProcess(
+                docker_command,
+                124,
+                exc.stdout or "",
+                f"Execution timed out after {timeout}s",
+            )

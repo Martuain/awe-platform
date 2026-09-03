@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AWE Platform API",
-    version="0.1.0",
+    version="1.0.2",
     description="API-first foundation for AWE Studio.",
     lifespan=lifespan,
 )

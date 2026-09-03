@@ -130,3 +130,66 @@ def test_discovery_accepts_natural_language_goal_without_keyword():
         )
         assert result["status"] == "awaiting_approval"
         assert result["open_questions"] == []
+
+def test_discovery_message_requires_initialized_session(client):
+    project = client.post("/api/v1/projects", json={"name": "Strict Discovery"}).json()
+
+    response = client.post(
+        "/api/v1/business-discovery/message",
+        json={"project_id": project["id"], "message": "We run a marketing agency."},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Discovery session not found"
+
+def test_discovery_start_is_idempotent_for_existing_project_session():
+    with TestClient(app) as client:
+        project = client.post("/api/v1/projects", json={"name": "Idempotent Discovery"}).json()
+        project_id = project["id"]
+
+        first = client.post(f"/api/v1/business-discovery/start?project_id={project_id}")
+        second = client.post(f"/api/v1/business-discovery/start?project_id={project_id}")
+
+        assert first.status_code == 201
+        assert second.status_code == 201
+        assert second.json()["session_id"] == first.json()["session_id"]
+        assert second.json()["version"] == first.json()["version"]
+
+
+
+def test_discovery_recognizes_coffee_shop_and_explicit_business_name():
+    with TestClient(app) as client:
+        project = client.post("/api/v1/projects", json={"name": "Coffee Demo"}).json()
+        project_id = project["id"]
+        client.post(f"/api/v1/business-discovery/start?project_id={project_id}")
+
+        result = client.post(
+            "/api/v1/business-discovery/message",
+            json={
+                "project_id": project_id,
+                "message": "The business name is E2E Coffee Studio. We are a coffee shop.",
+            },
+        ).json()
+
+        assert result["knowledge"]["business_name"]["value"] == "E2E Coffee Studio"
+        assert result["knowledge"]["industry"]["value"] == "restaurant"
+
+
+def test_discovery_removes_website_phrase_from_main_goal():
+    with TestClient(app) as client:
+        project = client.post("/api/v1/projects", json={"name": "Goal Demo"}).json()
+        project_id = project["id"]
+        client.post(f"/api/v1/business-discovery/start?project_id={project_id}")
+
+        result = client.post(
+            "/api/v1/business-discovery/message",
+            json={
+                "project_id": project_id,
+                "message": "The main goal of the website is to build the brand, showcase the menu and atmosphere, and encourage people to visit the shop.",
+            },
+        ).json()
+
+        assert result["knowledge"]["goals"][0]["value"] == (
+            "build the brand, showcase the menu and atmosphere, and encourage people "
+            "to visit the shop"
+        )

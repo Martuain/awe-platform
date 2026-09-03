@@ -16,6 +16,7 @@ class WebsiteSpecificationService:
     async def generate(self, project_id) -> WebsiteSpecification:
         strategy = await self.repository.get_strategy(project_id)
         design = await self.repository.get_design(project_id)
+        context = await self.repository.get_context(project_id)
         if not strategy:
             raise KeyError("strategy")
         if strategy.status.value != "approved":
@@ -25,14 +26,15 @@ class WebsiteSpecificationService:
         if design.status != BrandDesignStatus.APPROVED:
             raise ValueError("Brand & Design Direction must be approved before generating Website Specification")
 
+        industry = context.knowledge.industry.value if context else ""
         pages = [
             WebsitePageSpecification(
                 path=page.path,
                 name=page.name,
                 objective=page.objective,
                 primary_cta=page.primary_cta or strategy.content.primary_cta,
-                required_sections=self._sections_for(page.path),
-                content_requirements=self._content_for(page.path),
+                required_sections=self._sections_for(page.path, industry),
+                content_requirements=self._content_for(page.path, industry),
                 components=self._components_for(page.path),
             )
             for page in strategy.sitemap
@@ -56,17 +58,35 @@ class WebsiteSpecificationService:
         return await self.repository.create_specification(spec)
 
     @staticmethod
-    def _sections_for(path: str) -> list[str]:
-        mapping = {
-            "/": ["Hero/value proposition", "Key benefits", "Proof or credibility", "Primary conversion section"],
-            "/about": ["Business story", "Approach or differentiators", "Trust signals"],
-            "/services": ["Services overview", "Service detail/value", "Conversion section"],
-            "/contact": ["Contact context", "Contact form or action", "Response expectation"],
-        }
+    def _sections_for(path: str, industry: str = "") -> list[str]:
+        hospitality = any(term in industry.casefold() for term in (
+            "cafe", "café", "coffee shop", "restaurant", "bakery", "hospitality"
+        ))
+        if hospitality:
+            mapping = {
+                "/": ["Value proposition and atmosphere", "Signature menu highlights", "Reasons to visit", "Visit prompt"],
+                "/about": ["Our story", "Coffee and hospitality approach", "What guests can expect"],
+                "/services": ["Menu highlights", "Coffee and food experience", "Plan your visit"],
+                "/contact": ["Visit information", "Contact or enquiry action", "Response expectation"],
+            }
+        else:
+            mapping = {
+                "/": ["Value proposition", "Key benefits", "Proof or credibility", "Primary conversion section"],
+                "/about": ["Business story", "Approach or differentiators", "Trust signals"],
+                "/services": ["Services overview", "Service detail and value", "Conversion section"],
+                "/contact": ["Contact context", "Contact form or action", "Response expectation"],
+            }
         return mapping.get(path, ["Page introduction", "Primary content", "Conversion section"])
 
     @staticmethod
-    def _content_for(path: str) -> list[str]:
+    def _content_for(path: str, industry: str = "") -> list[str]:
+        hospitality = any(term in industry.casefold() for term in (
+            "cafe", "café", "coffee shop", "restaurant", "bakery", "hospitality"
+        ))
+        if hospitality and path == "/":
+            return ["Name the experience and signature offerings", "Lead with the approved positioning and a clear reason to visit"]
+        if hospitality and path == "/services":
+            return ["Describe representative menu and coffee offerings without inventing unavailable prices", "Make the visit experience easy to understand"]
         if path == "/":
             return ["State who the business serves and the value it provides", "Lead with the approved positioning"]
         if path == "/contact":

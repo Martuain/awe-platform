@@ -49,7 +49,9 @@ Docker is therefore an implementation choice for the current evidence stage, not
 - Supported dependencies: `next@15.5.21`, `react@19.1.9`, `react-dom@19.1.9`
 - Build command: `npm run build`
 - Network during build: disabled
-- Default timeout: 120 seconds
+- Dependency-install timeout: 300 seconds by default
+- Production-build timeout: 180 seconds by default
+- Maximum configurable phase timeout: 600 seconds
 - CPU: 1 core
 - Memory: 768 MB
 - PIDs: 128

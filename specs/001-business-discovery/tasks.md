@@ -38,15 +38,18 @@
 - [x] Approval is an explicit state transition; post-approval mutation remains a hardening test.
 
 ## T007 — Studio
-- [ ] Create project UI.
-- [ ] Create interview UI.
-- [ ] Create context review UI.
-- [ ] Add explicit approval action.
+- [x] Create project UI.
+- [x] Create interview UI.
+- [x] Create context review UI.
+- [x] Add explicit approval action.
 - [ ] Display evidence/confidence.
+- [x] Initialize Discovery on create/restore/switch when the context is missing.
+- [x] Keep the Discovery composer hidden until a context exists.
 
 ## T008 — Quality
 - [x] Add lifecycle test coverage.
 - [x] Add discovery lifecycle integration test.
+- [x] Add duplicate-project Discovery initialization regression coverage.
 - [ ] Golden fixtures for representative SMB projects.
 - [ ] Add unsupported-claim evaluation.
 - [ ] Add CI checks.

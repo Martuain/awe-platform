@@ -43,3 +43,12 @@ Rejected until one framework's generation/build/preview lifecycle is validated.
 ### Authentication/multi-tenancy before the executable loop
 
 Deferred because they do not prove the core product hypothesis.
+
+## Follow-up verification contract
+
+The repository now separates static/repository verification from executable-stack verification:
+
+- `pnpm mvp:gate` proves lint, production build and automated tests.
+- `pnpm e2e:mvp` proves that a fresh project can traverse the capability lifecycle and reach a running generated website.
+
+The end-to-end command intentionally requires the local Docker Compose stack because build and preview execution are runtime concerns rather than package-level tests.

@@ -12,6 +12,24 @@ from app.models import (
 from app.store import Repository
 
 
+def _goal_cta(goal: str) -> str:
+    """Turn an approved business goal into a short, action-oriented CTA."""
+    lower = goal.casefold()
+    if any(word in lower for word in ("visit", "shop", "store", "location")):
+        return "Visit us"
+    if any(word in lower for word in ("book", "appointment", "consult")):
+        return "Book a consultation"
+    if any(word in lower for word in ("contact", "enquir", "inquir", "conversation")):
+        return "Contact us"
+    if any(word in lower for word in ("buy", "purchase", "order", "sales")):
+        return "Shop now"
+    if any(word in lower for word in ("lead", "customer", "client", "attract")):
+        return "Get in touch"
+    if "brand" in lower or "showcase" in lower:
+        return "Discover more"
+    return "Learn more"
+
+
 class WebsiteStrategyService:
     def __init__(self, repository: Repository) -> None:
         self.repository = repository
@@ -54,24 +72,57 @@ class WebsiteStrategyService:
         audience = [x.value for x in context.knowledge.audience if x.value]
         goals = [x.value for x in context.knowledge.goals if x.value]
         goal = goals[0] if goals else "generate qualified enquiries"
+        goal_cta = _goal_cta(goal)
         audience_label = audience[0] if audience else "prospective customers"
-        proposition = context.knowledge.value_proposition.value or f"Help {audience_label} understand and act on the value offered by {industry}."
+        is_hospitality = any(term in f"{industry} {goal}".casefold() for term in (
+            "cafe", "café", "coffee shop", "restaurant", "bakery", "hospitality"
+        ))
+        if is_hospitality:
+            proposition = (
+                context.knowledge.value_proposition.value
+                or f"A welcoming place for carefully prepared coffee, good food and time well spent at {context.knowledge.business_name.value or 'the café'}."
+            )
+        else:
+            proposition = context.knowledge.value_proposition.value or f"Help {audience_label} understand and act on the value offered by {industry}."
+        offer_page_name = "Menu & Coffee" if is_hospitality else "Services"
+        offer_objective = (
+            "Showcase the menu, signature offerings and experience, and make it easy for visitors to plan a visit."
+            if is_hospitality
+            else "Explain the core offer in a scannable, outcome-oriented structure."
+        )
+        contact_objective = (
+            "Help visitors plan a visit or get in touch with the business."
+            if is_hospitality
+            else "Provide a low-friction path for qualified prospects to start a conversation."
+        )
+        contact_cta = "Visit us" if is_hospitality else "Contact us"
 
         strategy = WebsiteStrategy(
             project_id=project_id,
             strategy_id=uuid4(),
             source_context_version=context.version,
             sitemap=[
-                SitemapPage(path="/", name="Home", objective="Communicate the value proposition quickly and direct visitors toward the primary conversion.", primary_cta=goal),
-                SitemapPage(path="/about", name="About", objective="Build trust by explaining the business, expertise and relevant credibility."),
-                SitemapPage(path="/services", name="Services", objective="Explain the core offer in a scannable, outcome-oriented structure."),
-                SitemapPage(path="/contact", name="Contact", objective="Provide a low-friction path for qualified prospects to start a conversation.", primary_cta="Contact us"),
+                SitemapPage(path="/", name="Home", objective="Communicate the value proposition quickly and direct visitors toward the primary conversion.", primary_cta=goal_cta),
+                SitemapPage(path="/about", name="About", objective=(
+                    "Tell the story behind the business, what makes the experience distinctive, and why visitors can trust it."
+                    if is_hospitality
+                    else "Build trust by explaining the business, expertise and relevant credibility."
+                )),
+                SitemapPage(path="/services", name=offer_page_name, objective=offer_objective),
+                SitemapPage(path="/contact", name="Contact", objective=contact_objective, primary_cta=contact_cta),
             ],
             content=ContentStrategy(
                 positioning=proposition,
-                key_messages=[f"Designed for {audience_label}.", f"Focused on {goal}."],
+                key_messages=[
+                    (
+                        f"A welcoming experience for {audience_label}."
+                        if is_hospitality
+                        else f"Designed for {audience_label}."
+                    ),
+                    f"Focused on {goal}.",
+                ],
                 tone=["clear", "credible", "human"],
-                primary_cta="Get started",
+                primary_cta=goal_cta,
             ),
             design=DesignDirection(
                 visual_principles=["Clarity before decoration", "Strong hierarchy", "Trust through consistency"],

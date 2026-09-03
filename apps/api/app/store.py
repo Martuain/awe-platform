@@ -239,6 +239,9 @@ class InMemoryRepository(Repository):
         return project.model_copy(deep=True)
 
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext:
+        existing = await self.get_context(project_id)
+        if existing:
+            return existing
         context = DiscoveryContext(project_id=project_id, session_id=uuid4())
         self.contexts[project_id] = context
         return context
@@ -395,6 +398,10 @@ class SqlAlchemyRepository(Repository):
         return project
 
     async def start_discovery(self, project_id: UUID) -> DiscoveryContext:
+        existing = await self.get_context(project_id)
+        if existing:
+            return existing
+
         session_id = uuid4()
         now = datetime.now(timezone.utc)
         context = DiscoveryContext(project_id=project_id, session_id=session_id)

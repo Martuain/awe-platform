@@ -30,7 +30,7 @@ was hard-coded to the same goal question whenever no keyword was found.
 
 Result:
 
-**18 passed**
+**21 passed**
 
 The full `pnpm mvp:gate` could not be executed in the validation environment because
 pnpm 10.0.0 is not installed locally and Corepack cannot download it without

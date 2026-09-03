@@ -1,19 +1,14 @@
 # CI Notes
 
-## Genesis 0.1.1
+The canonical CI workflow lives at `.github/workflows/ci.yml`.
 
-The original GitHub failure was caused by `next build` detecting TypeScript while the
-Studio package did not declare TypeScript or the required React/Node type packages.
+It provisions Node.js 22 and Python 3.12, installs the locked pnpm dependency
+graph plus API requirements, then runs lint, production build, tests and the
+same `pnpm mvp:gate` used for local release validation.
 
-Fixed by adding:
-- `typescript`
-- `@types/node`
-- `@types/react`
-- `@types/react-dom`
-- explicit `tsconfig.json`
-- `next-env.d.ts`
+The Studio ESLint configuration uses `@next/eslint-plugin-next` directly to
+avoid the `nextVitals is not iterable` incompatibility observed with the
+Next.js 15.5.21 dependency line.
 
-The workflow also uses `actions/checkout@v5` and `actions/setup-node@v5`.
-
-The Node 20 messages in the previous run were action-runtime deprecation warnings,
-not the cause of the failed build.
+Dependency lockfile updates should be made deliberately and reviewed as part
+of release changes.

@@ -2,6 +2,6 @@
   "name": "@awe/api",
   "private": true,
   "scripts": {
-    "test": "python3 -m pytest"
+    "test": "if [ -x \"../../.venv/bin/python\" ]; then ../../.venv/bin/python -m pytest; else python3 -m pytest; fi"
   }
 }

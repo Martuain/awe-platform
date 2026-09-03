@@ -1,4 +1,43 @@
+# Changelog
+
+## 1.0.2 — Executable MVP end-to-end verification
+
+- Added a fresh-project end-to-end smoke test covering Discovery through a running deployed website.
+- Added `pnpm e2e:mvp` as the canonical local executable-flow verification command.
+- Verified that the strict Discovery API contract remains intact while Studio owns session initialization.
+- Added the local Docker CLI/socket boundary required for the API build and disposable preview adapters to execute from Docker Compose.
+- Added documentation for the end-to-end verification contract and the explicit local-only Docker socket trade-off.
+- Kept hosted/scalable execution, production cloud deployment and stronger multi-tenant isolation outside the MVP scope.
+
+
+## 1.0.1 — Discovery lifecycle hardening
+
+- Rebased the release candidate on the complete Genesis implementation rather than a reduced reconstruction.
+- Preserved PostgreSQL/SQLAlchemy persistence, Redis configuration, the full capability API surface, Studio workflow, Docker Compose stack and existing test suite.
+- Added idempotent Studio `ensureDiscovery(projectId)` initialization for project creation, saved-project restoration and project switching.
+- Kept `/business-discovery/message` strict so missing sessions are not silently created by a mutation endpoint.
+- Hardened Discovery composer rendering so it is unavailable until a persisted Discovery context exists.
+- Preserved CAP-014 duplication semantics: a duplicate gets a new project identity and clean capability state; Discovery is initialized independently rather than copied.
+- Added regression coverage for duplicate → missing Discovery context → initialization → successful Discovery message.
+- Added ADR-0015 documenting the lifecycle invariant.
+- Removed generated dependency/cache/macOS metadata from the release source tree.
+- Tidied release metadata and aligned root/Studio versions to 1.0.1 / 1.8.1.
+
 ## Unreleased
+
+### Build execution hardening
+
+- Split isolated website-build timeouts into dependency-install and production-build budgets; dependency installation defaults to 300 seconds and the offline production build to 180 seconds, with API-level bounds up to 600 seconds.
+- Exposed the build phase timeout controls through the execution API and updated the canonical E2E runner to use the explicit budgets.
+- Hardened preview execution to use the same phase budgets and report timeout failures as preview diagnostics.
+
+### Website generation quality
+
+- Added hospitality-aware strategy and Website Specification vocabulary, including menu/coffee/visit language for café and restaurant workflows.
+- Removed implementation-oriented specification labels from visitor-facing generated copy.
+- Improved generated metadata, page copy, CTAs and business-context propagation while avoiding unsupported prices, addresses, testimonials and other invented facts.
+- Added regression coverage for hospitality strategy vocabulary, generated visitor copy and phase-specific build timeouts.
+
 
 ## CAP-001 — Business Discovery v1.1 Hardening
 

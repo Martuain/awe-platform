@@ -6,11 +6,11 @@
 - CAP-004 Website Specification: implemented with Studio review and approval.
 - CAP-005 Website Generation: implemented with deterministic Next.js App Router generation.
 - CAP-006 Preview & Validation: implemented with deterministic artifact validation and safe browser preview.
-- CAP-007 Isolated Build & Runtime Contract: implemented as a non-executing sandbox contract; real isolated execution remains CAP-008.
+- CAP-007 Isolated Build & Runtime Contract: implemented with an explicit execution boundary and disposable local runtime; hosted/scalable execution remains post-MVP.
 
 # AWE Platform / AWE Studio --- Master Project Record
 
-**Genesis baseline:** v0.1.1 --- frozen\
+**Genesis baseline:** v1.0.2 --- release candidate\
 **Current milestone:** CAP-016 + CAP-017 --- End-to-End Executable Flow & Website Quality Baseline\
 **Status:** Living master document
 
@@ -34,6 +34,18 @@ not block approval when unavailable.
 The API regression suite validates these behaviors and the existing full
 suite passes locally in the validation environment.
 
+### Latest project lifecycle hardening
+
+CAP-014 duplication deliberately creates a clean project identity without copying
+Discovery or downstream capability artifacts. Studio now closes the resulting
+lifecycle gap by calling an idempotent `ensureDiscovery(projectId)` boundary on
+create, restore and project switch. The Discovery message endpoint remains
+strict and the composer is hidden until a Discovery context exists.
+
+The duplicate-project regression covers the complete API contract: a duplicate
+starts without a Discovery context, can initialize an independent session, and
+can then accept its first Discovery message.
+
 ## 1. Executive status
 
 AWE is being developed as an AI-powered platform for automated website
@@ -48,7 +60,7 @@ evaluation, API and orchestration architecture.
 
 This distinction is mandatory.
 
-Genesis v0.1.1 is frozen after the repository CI pipeline became green.
+Genesis v1.0.2 is the current release candidate after the repository MVP gate and Discovery lifecycle hardening.
 CAP-001 is the first capability to exercise the architecture through a
 real end-to-end vertical slice.
 
