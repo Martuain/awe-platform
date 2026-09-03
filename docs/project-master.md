@@ -10,7 +10,7 @@
 
 # AWE Platform / AWE Studio --- Master Project Record
 
-**Genesis baseline:** v1.0.2 --- release candidate\
+**Genesis baseline:** v1.0.3 --- release candidate\
 **Current milestone:** CAP-016 + CAP-017 --- End-to-End Executable Flow & Website Quality Baseline\
 **Status:** Living master document
 
@@ -60,7 +60,7 @@ evaluation, API and orchestration architecture.
 
 This distinction is mandatory.
 
-Genesis v1.0.2 is the current release candidate after the repository MVP gate and Discovery lifecycle hardening.
+Genesis v1.0.3 is the current release candidate after the repository MVP gate and Discovery lifecycle hardening.
 CAP-001 is the first capability to exercise the architecture through a
 real end-to-end vertical slice.
 

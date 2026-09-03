@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.3 — MVP generation and execution hardening
+
+- Promoted the verified MVP state after successful fresh-project end-to-end validation.
+- Split isolated website-build timeouts into dependency-install and production-build budgets.
+- Added hospitality-aware strategy and Website Specification vocabulary.
+- Removed implementation-oriented specification labels from visitor-facing generated copy.
+- Improved generated metadata, page copy, CTAs and business-context propagation while avoiding unsupported facts.
+- Added regression coverage for hospitality generation and phase-specific build timeouts.
+- Verified the complete local flow from Business Discovery through isolated build, validation, deployment and live HTTP response.
+
 ## 1.0.2 — Executable MVP end-to-end verification
 
 - Added a fresh-project end-to-end smoke test covering Discovery through a running deployed website.
@@ -23,20 +33,6 @@
 - Removed generated dependency/cache/macOS metadata from the release source tree.
 - Tidied release metadata and aligned root/Studio versions to 1.0.1 / 1.8.1.
 
-## Unreleased
-
-### Build execution hardening
-
-- Split isolated website-build timeouts into dependency-install and production-build budgets; dependency installation defaults to 300 seconds and the offline production build to 180 seconds, with API-level bounds up to 600 seconds.
-- Exposed the build phase timeout controls through the execution API and updated the canonical E2E runner to use the explicit budgets.
-- Hardened preview execution to use the same phase budgets and report timeout failures as preview diagnostics.
-
-### Website generation quality
-
-- Added hospitality-aware strategy and Website Specification vocabulary, including menu/coffee/visit language for café and restaurant workflows.
-- Removed implementation-oriented specification labels from visitor-facing generated copy.
-- Improved generated metadata, page copy, CTAs and business-context propagation while avoiding unsupported prices, addresses, testimonials and other invented facts.
-- Added regression coverage for hospitality strategy vocabulary, generated visitor copy and phase-specific build timeouts.
 
 
 ## CAP-001 — Business Discovery v1.1 Hardening

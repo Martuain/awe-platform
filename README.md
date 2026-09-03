@@ -1,6 +1,6 @@
 # AWE Platform
 
-**Genesis v1.0.2 — Executable MVP end-to-end verification**
+**Genesis v1.0.3 — Executable MVP end-to-end verification**
 
 AWE (AI-native Website Engineering) is an API-first, model-agnostic platform for turning structured business knowledge into engineered digital experiences.
 
@@ -120,6 +120,6 @@ This closes the lifecycle hole where a valid project could reach the Discovery c
 
 ## Current release status
 
-**MVP v1.0.2 release candidate — ready for owner validation.**
+**MVP v1.0.3 release candidate — ready for owner validation.**
 
 Production SaaS readiness is not claimed.
