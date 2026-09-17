@@ -193,3 +193,43 @@ def test_discovery_removes_website_phrase_from_main_goal():
             "build the brand, showcase the menu and atmosphere, and encourage people "
             "to visit the shop"
         )
+
+
+def test_discovery_recognizes_generic_shop_as_retail_industry():
+    with TestClient(app) as client:
+        project = client.post("/api/v1/projects", json={"name": "Retail Demo"}).json()
+        project_id = project["id"]
+        client.post(f"/api/v1/business-discovery/start?project_id={project_id}")
+
+        result = client.post(
+            "/api/v1/business-discovery/message",
+            json={
+                "project_id": project_id,
+                "message": "We run a neighborhood shop. The website should help attract more local customers.",
+            },
+        ).json()
+
+        assert result["knowledge"]["industry"]["value"] == "retail"
+        assert result["knowledge"]["goals"][0]["value"] == "attract more local customers"
+        assert result["status"] == "awaiting_approval"
+        assert result["open_questions"] == []
+
+
+def test_discovery_accepts_explicit_unlisted_industry():
+    with TestClient(app) as client:
+        project = client.post("/api/v1/projects", json={"name": "Industry Demo"}).json()
+        project_id = project["id"]
+        client.post(f"/api/v1/business-discovery/start?project_id={project_id}")
+
+        result = client.post(
+            "/api/v1/business-discovery/message",
+            json={
+                "project_id": project_id,
+                "message": "Our industry is renewable energy. The website should generate qualified leads.",
+            },
+        ).json()
+
+        assert result["knowledge"]["industry"]["value"] == "renewable energy"
+        assert result["knowledge"]["goals"][0]["value"] == "generate qualified leads"
+        assert result["status"] == "awaiting_approval"
+        assert result["open_questions"] == []

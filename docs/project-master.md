@@ -11,7 +11,7 @@
 # AWE Platform / AWE Studio --- Master Project Record
 
 **Genesis baseline:** v1.0.3 --- release candidate\
-**Current milestone:** CAP-016 + CAP-017 --- End-to-End Executable Flow & Website Quality Baseline\
+**Current milestone:** CAP-025 --- Security & Access Boundary\
 **Status:** Living master document
 
 ### Latest Discovery hardening
@@ -45,6 +45,143 @@ strict and the composer is hidden until a Discovery context exists.
 The duplicate-project regression covers the complete API contract: a duplicate
 starts without a Discovery context, can initialize an independent session, and
 can then accept its first Discovery message.
+
+## Current post-v1.0.3 Studio workflow increment
+
+The v1.0.3 release remains frozen. The next Studio increment completes the
+project workspace loop at the UI boundary:
+
+- project selection is available even when no project is currently selected;
+- a new project can be started without manually clearing browser state;
+- projects can be duplicated into an independent clean workspace;
+- projects can be archived and restored through the existing lifecycle API;
+- archived projects remain visible for recovery but their capability pipeline
+  is disabled until restored;
+- active-project selection continues to initialize Discovery idempotently.
+
+This increment builds on CAP-012/CAP-013/CAP-014 rather than introducing a new
+persistence model or capability contract.
+
+## Master-document change-control rule
+
+The Project Master is the authoritative cumulative record of the repository's evolution. Every capability package must update this document before the package is considered complete. The record must cover, for each increment, the baseline, additions, modifications, fixes, removals/deprecations, files or boundaries materially affected, API/data/configuration changes, architectural decisions and trade-offs, verification performed, known limitations, deferred work, and release/tag status.
+
+A capability-specific document may contain detailed design notes, but it does not replace the Project Master. The Project Master records the cumulative product and engineering state and the reason for each material transition.
+
+**Release discipline:** `v1.0.3` is frozen. Subsequent CAP-009, CAP-019 and CAP-020 work is unreleased working history unless explicitly tagged later. No capability package may move or rewrite the frozen tag.
+
+## Current working baseline
+
+The current unreleased working baseline is the cumulative sequence:
+
+```text
+v1.0.3 frozen
+    ↓
+CAP-009 Preview Runtime Responsiveness
+    ↓
+CAP-019 Studio Generation Loop + Deployment Lifecycle
+    ↓
+CAP-020 Production Model Adapter
+    ↓
+CAP-021 Migration Hardening
+    ↓
+CAP-022 + CAP-023 Deployment Operations
+    ↓
+CAP-024 Hosted/Scalable Execution & Production Deployment Boundary
+    ↓
+CAP-025 Security & Access Boundary
+```
+
+All increments after v1.0.3 are working history unless explicitly tagged later. The repository must not imply that hosted execution, cloud deployment, or production SaaS readiness is complete merely because provider-neutral boundaries exist.
+
+## Capability package audit records
+
+### CAP-009 — Preview Runtime Responsiveness
+
+- **Baseline:** v1.0.3 working source after the first Preview UX implementation.
+- **Added:** asynchronous execution boundary for disposable preview work; reuse of a healthy runtime for the same project/generation; Studio start/stop state handling and live preview controls.
+- **Changed:** preview Docker/npm install/build/stop operations no longer occupy the FastAPI event loop; preview start behavior became idempotent for an existing healthy runtime.
+- **Fixed:** repeated Start Live Preview actions no longer needlessly create duplicate runtimes; the apparent Studio hang caused by synchronous Docker/npm work in an async endpoint was removed.
+- **Removed / deliberately avoided:** no external hosting dependency; no unsafe direct filesystem serving; no claim that a preview runtime is a production deployment.
+- **Affected boundaries:** `apps/api/app/services/preview.py`, preview route, Studio Preview stage, preview tests and CAP-009 documentation.
+- **Verification:** preview endpoint/runtime behavior was exercised against a real generated Next.js site; runtime returned HTTP 200 and generated HTML; regression coverage retained.
+- **Deferred:** durable hosted preview workers, cloud runtime orchestration and production-grade runtime health management.
+- **Release status:** unreleased; v1.0.3 untouched.
+
+### CAP-019 — Studio Generation Loop + Deployment Lifecycle
+
+- **Baseline:** CAP-009 preview-capable Studio and provider-neutral deployment API.
+- **Added:** explicit Studio Build and Deployment stages; build-plan visibility; isolated build execution diagnostics; validation gate; deployment history; versioned deployment lifecycle; deployment supersession and failure persistence.
+- **Changed:** Studio navigation became Generation → Build Plan → Isolated Build → Validation → Preview → Deployment; deployment calls use canonical `/api/v1/deployments` routes; deployment requires a validated generation.
+- **Fixed:** incorrect preview/deployment ternary rendering, successful build incorrectly jumping directly to Preview, and deployment history not being restored on project load.
+- **Removed / deliberately avoided:** no direct cloud provider coupling; no deployment before validation.
+- **Affected boundaries:** Studio pipeline, build/deployment routes and services, deployment persistence, CAP-019 docs/roadmap/changelog.
+- **Verification:** Studio lint/build passed; API regression passed; Docker Studio image built and served HTTP 200; deployment lifecycle regression covered versioning, supersession and failures.
+- **Deferred:** production cloud deployment, durable workers, artifact registry and autoscaling.
+- **Release status:** unreleased; v1.0.3 untouched.
+
+### CAP-020 — Production Model Adapter
+
+- **Baseline:** deterministic model gateway and CAP-019 pipeline.
+- **Added:** OpenAI-compatible HTTP model adapter; environment-driven provider/name/base-URL/timeout selection; provider-specific failure normalization.
+- **Changed:** model gateway can opt into a real HTTP provider while deterministic mock behavior remains the default for reproducible local development/tests.
+- **Fixed / hardened:** missing credentials, unsupported provider, timeout/network failure, provider HTTP error and malformed/empty model responses receive explicit handling.
+- **Removed / deliberately avoided:** no provider API key embedded in source, generated artifacts or documentation; no mandatory external provider; no vendor-specific domain model contract.
+- **Affected boundaries:** model gateway, discovery integration, configuration documentation, provider tests.
+- **Verification:** API regression passed including provider adapter tests; deterministic default retained.
+- **Deferred:** provider fleet management, model routing policy, spend controls and hosted inference infrastructure.
+- **Release status:** unreleased; v1.0.3 untouched.
+
+### CAP-021 — Migration Hardening
+
+- **Baseline:** SQLAlchemy persistence with Alembic introduced as the authoritative schema lifecycle.
+- **Added:** initial migration revision/configuration and migration regression coverage.
+- **Changed:** API startup now runs `alembic upgrade head` in a worker thread rather than directly invoking SQLAlchemy `create_all()`.
+- **Fixed / hardened:** schema initialization now has an explicit versioned migration boundary and startup does not block the async event loop with migration work.
+- **Removed / deliberately avoided:** direct runtime schema creation as the production lifecycle; no claim that downgrade is universally safe for destructive future migrations.
+- **Affected boundaries:** `apps/api/alembic`, API startup/database initialization, migration tests and docs.
+- **Verification:** 55 API tests passed at package acceptance.
+- **Deferred:** zero-downtime migration orchestration, production migration approval workflow and complex data backfills.
+- **Release status:** unreleased; v1.0.3 untouched.
+
+### CAP-022 + CAP-023 — Deployment Operations
+
+- **Baseline:** CAP-021 migration-hardened deployment workflow.
+- **Added:** generated-artifact performance budget checks; Studio performance reporting; API monitoring summary; Studio monitoring surface.
+- **Changed:** operational state is visible without requiring an external observability vendor.
+- **Fixed / hardened:** performance and monitoring became explicit contracts instead of implicit assumptions about production readiness.
+- **Removed / deliberately avoided:** no fake Lighthouse/Core Web Vitals measurements; no external telemetry claims; no mandatory alerting vendor.
+- **Affected boundaries:** performance/monitoring API routes, Studio operations UI, regression suite and documentation.
+- **Verification:** 58 API tests passed, including the new operational checks.
+- **Deferred:** browser Core Web Vitals, external metrics/alerting and hosted observability.
+- **Release status:** unreleased; v1.0.3 untouched.
+
+### CAP-024 — Hosted/Scalable Execution & Production Deployment Boundary
+
+- **Baseline:** local Docker execution and deterministic local deployment provider.
+- **Added:** provider-neutral build execution interface; opt-in hosted HTTP build adapter; provider-neutral deployment selection; opt-in hosted HTTP deployment adapter.
+- **Changed:** execution/deployment providers can be selected without changing capability contracts; local Docker remains the default.
+- **Fixed / hardened:** provider failures are explicit and do not silently fall back to local execution, preventing hidden production behavior.
+- **Removed / deliberately avoided:** no cloud vendor lock-in; no invented cloud infrastructure; no claim of an actual worker fleet or autoscaling implementation.
+- **Affected boundaries:** execution/deployment services, configuration, provider tests and CAP-024 docs.
+- **Verification:** 62 API tests passed, including hosted adapter boundary tests.
+- **Deferred:** durable queue, production worker fleet, artifact registry, autoscaling, zero-downtime orchestration and concrete cloud provider integration.
+- **Release status:** unreleased; v1.0.3 untouched.
+
+### CAP-025 — Security & Access Boundary
+
+- **Baseline:** CAP-024 with authentication/authorization and multi-tenant ownership still incomplete.
+- **Added:** explicit development/strict authentication modes; database-backed users and bearer sessions; salted scrypt password hashing; opaque `awe_` API keys; API-key scopes/revocation/last-used metadata; project ownership; authentication middleware; server-side project authorization; auth endpoints; ADR-0018.
+- **Changed:** project creation assigns the authenticated owner; project listing/monitoring are owner-scoped; project resources and deployments require server-side ownership checks; programmatic clients are constrained by scopes.
+- **Fixed / hardened:** cross-owner project access by UUID manipulation; unrestricted API-key behavior; plaintext API-key persistence; unauthenticated access in strict mode.
+- **Removed / deliberately avoided:** no external identity vendor, no plaintext credentials, no assumption that development mode is production authentication, no team/collaboration/billing model in this increment.
+- **Affected boundaries:** `apps/api/app/security.py`, `middleware.py`, auth routes, project model/repository, migration `0002_auth_security`, tests, roadmap, changelog and ADR-0018.
+- **Data changes:** `projects.owner_id`; `users`; `auth_sessions`; `api_keys`.
+- **API changes:** `/api/v1/auth/register`, `/login`, `/me`, `/api-keys`, `/api-keys/{id}/revoke`; project endpoints now require authenticated ownership in the main application.
+- **Configuration:** `AWE_AUTH_MODE=development|strict`; `AWE_SESSION_TTL_HOURS`; strict mode requires persistent authentication storage.
+- **Verification:** 69 API tests passed, including security-specific negative authorization and scope tests. Docker/Studio full-stack verification was not available in the packaging environment and remains a local deployment acceptance step.
+- **Known limitations:** account recovery/email verification, OIDC/SAML/SSO, team roles, invitations, dedicated API-key rotation and ownership review for pre-existing production data remain incomplete.
+- **Release status:** unreleased; v1.0.3 untouched.
 
 ## 1. Executive status
 
@@ -2059,3 +2196,619 @@ The revision path now applies a deterministic, provider-independent subset of ac
 - approved strategies remain immutable and reject later revisions with HTTP 409.
 
 Regression coverage now includes both explicit and natural-language revision paths and verifies that the relevant strategy content actually changes, rather than merely recording the feedback. This remains deterministic for CAP-002; a future model-based revision agent can be introduced behind the same transformation boundary once its behavior is testable.
+
+
+------------------------------------------------------------------------
+
+## CAP-009 — Preview Runtime Responsiveness Follow-up
+
+**Status:** Implemented in the post-v1.0.3 working baseline; locally validated.
+
+### Problem found
+
+The first live-preview implementation executed disposable Docker/npm install/build work synchronously from an `async` FastAPI endpoint. Although the endpoint contract was correct, long-running subprocess work could occupy the API event loop and make Studio appear hung while a preview was being prepared.
+
+Repeated starts could also create multiple disposable runtime containers for the same project/generation.
+
+### Added
+
+- Preview start execution moved to a worker thread so Docker/npm install/build does not block the FastAPI event loop.
+- Preview stop and cleanup work also moved off the event loop.
+- Preview start recognizes a healthy existing runtime for the same project and generation and reuses it.
+- Studio exposes explicit live-preview lifecycle controls: start, refresh, open in a new tab and stop.
+- The Preview UI keeps safe generated-artifact preview separate from the optional disposable live runtime.
+
+### Changed
+
+- The preview API remains the orchestration boundary; generated code is not executed by Studio itself.
+- The disposable runtime continues to use the existing Docker isolation model.
+- A cold start remains potentially slow because the disposable runtime may need dependency installation and a production build.
+
+### Fixed
+
+- Apparent Studio hangs caused by blocking preview subprocesses.
+- Duplicate runtime creation caused by repeated preview-start attempts.
+
+### Removed / deliberately avoided
+
+- No direct host execution of generated code.
+- No Kubernetes, hosted worker queue or persistent production runtime.
+- No second preview execution architecture.
+
+### Verification
+
+- API regression coverage was added for preview runtime behavior.
+- The generated runtime was manually verified to return valid Next.js HTML over its mapped localhost port.
+- The runtime was verified as healthy and serving `next start` output.
+
+### Deferred
+
+Persistent artifact caching, hosted/scalable preview workers, cancellation/streaming, remote runtime orchestration and production observability remain outside the MVP/local-runtime boundary.
+
+See `docs/cap-019-studio-generation-loop.md`, `docs/cap-009-studio.md` and `docs/adr/ADR-0007-disposable-preview-runtime.md`.
+
+------------------------------------------------------------------------
+
+## CAP-019 — Studio Generation Loop and Deployment Lifecycle
+
+**Status:** Implemented in the post-v1.0.3 working baseline; locally deployed/validated.
+
+### Objective
+
+Turn the previously separate generation, build, validation, preview and deployment API operations into one explicit Studio workflow with visible gates and diagnostics.
+
+### Added
+
+Studio now exposes an eight-stage pipeline:
+
+```text
+01 Discovery
+02 Strategy
+03 Design
+04 Website Specification
+05 Generate
+06 Build
+07 Preview
+08 Deploy
+```
+
+The Build stage exposes:
+
+- build-plan status;
+- isolation information;
+- plan diagnostics;
+- build stdout/stderr diagnostics;
+- refresh/build-plan actions;
+- isolated build execution;
+- explicit validation after a successful build.
+
+The Preview stage exposes:
+
+- passed-validation gating;
+- safe generated-artifact preview;
+- optional disposable live runtime;
+- runtime status;
+- refresh;
+- open-in-new-tab;
+- stop-runtime controls.
+
+The Deploy stage exposes the local deployment lifecycle and deployment history.
+
+### Deployment lifecycle additions
+
+- Deployment requires a validated Website Generation.
+- Deployment versions increment per project (`v1`, `v2`, `v3`, ...).
+- A new deployment supersedes queued, deploying or deployed predecessors.
+- Superseded records remain in history and become `stopped`.
+- Runtime/provider failures become explicit `failed` deployment records instead of remaining stuck in `deploying`.
+- Studio uses the canonical `/api/v1/deployments` routes.
+- Deployment history is loaded when an existing project is opened.
+
+### Changed
+
+- Preview and Deploy navigation is gated by passed validation.
+- Successful isolated build no longer silently advances directly to Preview; Studio remains on Build until the user explicitly validates.
+- The Studio pipeline became the visible orchestration surface while execution remains behind the API/Docker boundary.
+- Existing project selection, duplication, archive/restore and Discovery initialization remain compatible with the new pipeline.
+
+### Fixed
+
+- Incorrect deployment API path usage in Studio.
+- Missing explicit Build boundary in the Studio pipeline.
+- False progression after build/validation failures.
+- Deployment records that could remain `deploying` after runtime/provider failure.
+- Loss of deployment history when reopening a project.
+- Preview-stage navigation that could bypass the validation gate.
+
+### Removed / deliberately avoided
+
+- No direct generated-code execution in Studio.
+- No hosted/scalable worker system.
+- No cloud provider abstraction.
+- No background job orchestration.
+- No collaborative editing system.
+- No replacement of the existing Docker disposable execution boundary.
+
+### Architecture decision
+
+The MVP continues to use Docker as the disposable execution boundary. CAP-019 improves the product workflow without prematurely introducing Kubernetes, hosted CI, a worker queue or a second execution architecture.
+
+### Verification
+
+- API regression suite reached 48 passing tests at the CAP-019 completion baseline.
+- Studio lint and production build passed.
+- Docker Studio image built successfully and the production container returned HTTP 200.
+- The complete local Studio generation/build/validation/preview/deployment loop was manually exercised.
+
+### Deferred
+
+Hosted/scalable workers, cancellable/streaming builds, artifact registry, cloud deployment providers and production-scale observability remain deferred.
+
+See `docs/cap-019-studio-generation-loop.md` and the deployment ADRs under `docs/adr/`.
+
+------------------------------------------------------------------------
+
+## CAP-020 — Production Model Adapter
+
+**Status:** Implemented in the post-v1.0.3 working baseline; locally deployed/validated.
+
+### Objective
+
+Introduce a real provider boundary without coupling AWE capabilities to a vendor SDK while preserving deterministic local development and tests.
+
+### Added
+
+- An OpenAI-compatible HTTP model adapter using the Python standard library.
+- Environment-driven provider selection.
+- Provider base URL, model name and timeout configuration.
+- Explicit provider/gateway error handling.
+- Regression coverage for provider selection and request handling.
+
+Supported configuration:
+
+```text
+AWE_MODEL_PROVIDER=mock
+AWE_MODEL_PROVIDER=openai-compatible
+AWE_MODEL_API_KEY=...
+AWE_MODEL_BASE_URL=https://api.openai.com/v1
+AWE_MODEL_NAME=gpt-4o-mini
+AWE_MODEL_TIMEOUT_SECONDS=60
+```
+
+### Changed
+
+- The capability-facing `ModelGateway` contract remains stable while provider implementation is selected behind it.
+- Discovery can use the configured model gateway without embedding vendor-specific SDK logic in the capability.
+- Provider calls execute outside the FastAPI event loop.
+- The deterministic mock remains the default when no provider is configured.
+
+### Fixed / hardened
+
+- Missing credentials are reported explicitly.
+- Unsupported provider values fail explicitly.
+- Provider HTTP failures, timeouts and malformed/empty responses become explicit gateway failures.
+- Strict response validation prevents malformed provider output from silently corrupting structured Discovery state.
+
+### Removed / deliberately avoided
+
+- No vendor SDK is required.
+- No provider credential is persisted in project/capability state.
+- No API key is committed to the repository.
+- No change to the Discovery structured-output contract.
+- No claim of production SaaS readiness.
+
+### Architecture decision
+
+The AWE capability contract remains provider-neutral. An OpenAI-compatible HTTP adapter is an implementation detail, not a new product-level dependency. The same boundary can support compatible hosted providers or future local/open-weight adapters.
+
+### Verification
+
+- API regression suite reached 53 passing tests at the CAP-020 baseline.
+- Deterministic mock behavior remains available for local/test execution.
+- Provider configuration and failure paths are covered by regression tests.
+- The CAP-020 baseline was locally deployed by the project workflow.
+
+### Deferred
+
+Credential management/secrets infrastructure, provider health/circuit breaking, usage accounting, token/cost telemetry, provider routing/fallback policies and production SaaS operational controls remain deferred.
+
+See `docs/cap-020-production-model-adapter.md` and `docs/adr/ADR-0005-model-agnostic.md`.
+
+------------------------------------------------------------------------
+
+## Documentation audit — CAP-009 / CAP-019 / CAP-020
+
+This audit closes the documentation gap identified after the CAP-020 baseline. The Project Master now records the material cumulative delta for the post-v1.0.3 preview, generation-loop/deployment and model-provider increments, including additions, changes, fixes, deliberate non-additions/removals, architectural rationale, verification and deferred work.
+
+The capability documents remain the detailed local records; the Master Project Record is the cross-capability historical source of truth. Future capability packages must extend this audit trail rather than relying solely on a capability-specific changelog entry.
+
+------------------------------------------------------------------------
+
+## CAP-021 — Migration Hardening
+
+**Status:** Implemented in the CAP-021 working package; pending owner local deployment/acceptance.
+
+### Baseline
+
+CAP-021 starts from the locally deployed CAP-020 Project Master-hardened baseline. `v1.0.3` remains frozen and is not modified or retagged.
+
+### Objective
+
+Replace implicit PostgreSQL schema creation with an explicit, reproducible migration lifecycle while preserving the existing in-memory test repository and MVP architecture.
+
+### Added
+
+- Alembic configuration at `apps/api/alembic.ini`.
+- Alembic environment and migration template under `apps/api/alembic/`.
+- Initial `0001_initial_schema` revision establishing the existing MVP SQLAlchemy schema.
+- Alembic dependency pinned in `apps/api/requirements.txt`.
+- Migration regression tests in `apps/api/tests/test_migrations.py`.
+- ADR-0017 documenting migration authority.
+
+### Changed
+
+- `apps/api/app/store.py:init_database()` no longer invokes `Base.metadata.create_all()` during application startup.
+- Startup now invokes `alembic upgrade head` through a worker thread, keeping synchronous migration work outside the FastAPI event loop.
+- `docs/roadmap.md` marks migration hardening complete.
+- `CHANGELOG.md` records CAP-021 as an unreleased working increment.
+
+### Fixed / hardened
+
+- Empty PostgreSQL initialization now has an explicit versioned schema path.
+- Schema lifecycle is no longer silently coupled to SQLAlchemy metadata creation at every startup.
+- Future schema changes now have a committed migration boundary that can be inspected, reviewed and tested.
+
+### Removed / deliberately avoided
+
+- Removed application-startup `Base.metadata.create_all()` behavior.
+- No automatic generation of migration revisions.
+- No destructive startup reset.
+- No migration requirement for the in-memory repository used by tests without `DATABASE_URL`.
+- No separate migration service or production orchestration layer was introduced.
+
+### Architecture / rationale
+
+Alembic is the authoritative PostgreSQL schema lifecycle. The initial revision deliberately establishes the current MVP schema using the existing metadata so this hardening step remains low-risk. Future changes must be represented by explicit new revisions rather than modifying the initial baseline.
+
+See `docs/cap-021-migration-hardening.md` and `docs/adr/ADR-0017-migration-authority.md`.
+
+### Verification
+
+- API regression suite: **55 passed**.
+- Migration configuration/revision regression tests: included in the 55 passing tests.
+- Studio and Docker integration remain package acceptance checks after local deployment.
+
+### Deferred
+
+Online zero-downtime migration choreography, automated backup/restore validation, destructive-migration approval workflows and production migration orchestration remain deferred.
+
+
+## CAP-022 + CAP-023 — Deployment Operations (current working increment)
+
+### Baseline
+Built from the accepted CAP-021 Migration Hardening baseline, including the CAP-009 preview fix, CAP-019 generation/build/validation/preview/deployment loop, CAP-020 production model adapter, and migration hardening.
+
+### Added
+- `POST /api/v1/website-performance/check` for deterministic generated-artifact performance budgets.
+- `GET /api/v1/monitoring` for lightweight service/project/deployment health counts.
+- Studio Deployment-stage controls for Performance check and Monitoring.
+- `docs/cap-022-023-operations.md` and roadmap/changelog entries.
+- Regression tests for operational endpoints.
+
+### Changed
+- M4 roadmap status now marks one-click deployment, performance checks, and monitoring as implemented at the MVP operational level.
+- Deployment UI now exposes operational diagnostics alongside deployment history.
+
+### Fixed
+- No production defect was repaired in this increment; the work closes previously unimplemented M4 operational surfaces.
+
+### Removed / deliberately not added
+- No existing deployment provider or cloud integration was removed.
+- Browser/Lighthouse performance scoring, real-user monitoring, external telemetry, alerting, and hosted workers remain deliberately deferred.
+
+### Architecture decisions
+- Performance checks operate on generated artifact source metadata rather than pretending to measure browser runtime performance from inside the API container.
+- Monitoring remains provider-neutral and dependency-light; it does not introduce a mandatory observability vendor.
+
+### Verification
+- API regression suite: 58 passed.
+- CAP-022/023 targeted tests: 3 passed.
+- Studio lint/build require the locally installed pnpm workspace dependencies and remain part of the local package acceptance gate.
+
+### Release status
+Unreleased working increment. `v1.0.3` remains frozen and untouched.
+
+------------------------------------------------------------------------
+
+## CAP-024 — Hosted/Scalable Execution & Production Deployment Boundary
+
+**Status:** Implemented as an unreleased working increment; local deterministic path preserved.
+
+### Baseline
+Built from the accepted CAP-022 + CAP-023 Deployment Operations baseline. `v1.0.3` remains frozen, and no release tag is moved or created.
+
+### Objective
+Separate execution concerns from capability orchestration so expensive website builds and deployment operations can be delegated to independently scalable infrastructure without coupling AWE to a specific cloud vendor.
+
+### Added
+- `BuildExecutionProvider` interface in `apps/api/app/services/execution.py`.
+- `LocalDockerBuildExecutionProvider`, preserving the existing Docker-volume sandbox as the default execution implementation.
+- `HostedBuildExecutionProvider`, an opt-in HTTP adapter for a separately deployed build worker/service.
+- Environment-selected build execution using `AWE_BUILD_EXECUTION_PROVIDER`.
+- Hosted build endpoint/token/timeout configuration through `AWE_BUILD_EXECUTION_URL`, `AWE_BUILD_EXECUTION_TOKEN`, and `AWE_BUILD_EXECUTION_TIMEOUT_SECONDS`.
+- `HostedDeploymentProvider` and environment-selected deployment provider resolution.
+- Hosted deployment endpoint/token/timeout configuration through `AWE_DEPLOYMENT_PROVIDER_URL`, `AWE_DEPLOYMENT_PROVIDER_TOKEN`, and `AWE_DEPLOYMENT_PROVIDER_TIMEOUT_SECONDS`.
+- Explicit provider-selection and failure-path regression tests.
+- CAP-024 capability documentation and ADR-0018.
+
+### Changed
+- `WebsiteBuildService.execute()` now resolves a provider rather than hard-coding the local execution mechanism.
+- The existing local build implementation was retained behind the new provider boundary, minimizing behavioral change and preserving Docker isolation/network policy.
+- `DeploymentService` now resolves the provider from `AWE_DEPLOYMENT_PROVIDER`, while defaulting to the existing local provider.
+- The roadmap and changelog now distinguish the execution/deployment abstraction from actual hosted infrastructure.
+
+### Fixed / hardened
+- Future hosted execution no longer requires capability code to be rewritten around a particular worker implementation.
+- Unsupported execution-provider values fail explicitly instead of silently selecting a fallback.
+- Hosted execution/deployment failures are represented explicitly; the API does not silently fall back from hosted mode to local mode.
+- Missing hosted configuration is surfaced as a deterministic configuration error.
+
+### Removed / deliberately avoided
+- No local Docker sandbox was removed.
+- No cloud vendor SDK was introduced.
+- No mandatory external queue, registry, Kubernetes cluster, cloud account, DNS/TLS service, or observability vendor was added.
+- No production cloud provider is claimed merely because an HTTP adapter exists.
+- No credentials are persisted in project state or committed to the repository.
+
+### Architecture / rationale
+The provider boundary is the stable contract. Local Docker remains the reproducible MVP implementation. Hosted adapters provide a narrow integration point for separately operated workers/deployment services, allowing scaling to evolve independently. The adapters deliberately do not own the security, queue durability, autoscaling, artifact retention, secrets management, or cloud lifecycle of the future hosted infrastructure.
+
+### Configuration
+Default local behavior requires no new configuration:
+
+```text
+AWE_BUILD_EXECUTION_PROVIDER=local-docker
+AWE_DEPLOYMENT_PROVIDER=local
+```
+
+Hosted modes are explicit and opt-in:
+
+```text
+AWE_BUILD_EXECUTION_PROVIDER=hosted
+AWE_BUILD_EXECUTION_URL=https://build.example.internal
+AWE_BUILD_EXECUTION_TOKEN=...
+AWE_BUILD_EXECUTION_TIMEOUT_SECONDS=600
+
+AWE_DEPLOYMENT_PROVIDER=hosted
+AWE_DEPLOYMENT_PROVIDER_URL=https://deploy.example.internal
+AWE_DEPLOYMENT_PROVIDER_TOKEN=...
+AWE_DEPLOYMENT_PROVIDER_TIMEOUT_SECONDS=600
+```
+
+### Verification
+- Python compilation: passed.
+- API regression suite after integration: **62 passed**.
+- CAP-024 provider-selection/failure tests: **4 passed**.
+- Existing build/deployment regression behavior remained green after the provider refactor.
+- Studio source was not behaviorally changed in this increment; existing Studio lint/build remain part of the local package acceptance gate.
+
+### Deferred
+A durable asynchronous job queue, persistent worker fleet, artifact registry, cloud deployment implementation, autoscaling, workload cancellation/streaming, secrets management, deployment health reconciliation and zero-downtime production orchestration remain deferred. These are intentionally not represented as complete by CAP-024.
+
+### Release status
+Unreleased working increment. No tag or frozen release was modified.
+
+See `docs/cap-024-hosted-execution.md` and `docs/adr/ADR-0018-execution-provider-boundary.md`.
+
+## CAP-025 — Security & Access Boundary
+
+### Baseline
+CAP-024 hosted/scalable execution and production-deployment abstraction, with authentication/authorization still explicitly incomplete.
+
+### Added
+- Explicit authentication boundary with development and strict modes.
+- Database-backed users, bearer sessions and API-key records.
+- Password hashing using salted scrypt.
+- Opaque `awe_` API keys with hashed-at-rest storage, one-time plaintext return, prefixes, scopes, last-used timestamp and revocation timestamp.
+- Project ownership identity (`owner_id`) and server-side project authorization.
+- Scope enforcement for programmatic API access.
+- Auth endpoints for registration, login, current identity and API-key lifecycle.
+- Security regression coverage, including unauthorized access and cross-owner denial.
+- ADR-0018 documenting the security boundary.
+
+### Changed
+- Project creation now assigns the authenticated identity as owner.
+- Project listing is owner-scoped.
+- Project duplication preserves ownership and requires project authorization.
+- Monitoring is owner-scoped rather than exposing aggregate data across tenants.
+- Existing project resources are protected through the API middleware/resource boundary.
+- Authentication is applied to API access while health and account-bootstrap endpoints remain intentionally public.
+
+### Fixed / hardened
+- Prevented authenticated users from accessing another owner's project by changing a project UUID.
+- Prevented API keys from being treated as unrestricted credentials by adding explicit scopes.
+- Prevented raw API-key secrets from being persisted.
+- Added strict-mode rejection for unauthenticated API requests.
+
+### Removed / deliberately not added
+- No external identity/SSO vendor dependency.
+- No plaintext credential storage.
+- No cookie-only authentication requirement for API clients.
+- No team/collaboration roles or billing model yet.
+- No claim that development authentication is production-safe.
+
+### Data/API/configuration impact
+- Added `owner_id` to projects.
+- Added `users`, `auth_sessions`, and `api_keys` persistence tables through migration `0002_auth_security`.
+- Added `/api/v1/auth/register`, `/login`, `/me`, and API-key lifecycle endpoints.
+- `AWE_AUTH_MODE=development|strict` controls the authentication boundary; development is the compatibility default for the local MVP stack.
+- `AWE_SESSION_TTL_HOURS` controls session lifetime.
+
+### Verification
+- Full API regression suite: **69 passed**.
+- Security-specific tests cover development identity, ownership assignment, cross-owner denial, password verification, secret hashing, API-key scope enforcement and strict-mode rejection.
+
+### Known limitations / deferred work
+- Production-grade email verification, password reset and account recovery are not yet implemented.
+- OIDC/SAML/SSO, team roles, invitations and fine-grained tenant administration remain future work.
+- API-key rotation UX is represented by revoke/create rather than a dedicated rotate endpoint.
+- Existing production data requires ownership review before multi-user exposure.
+
+### Release status
+CAP-025 is an unreleased working increment. `v1.0.3` remains frozen and untouched.
+
+---
+
+# CAP-026 / CAP-027 / CAP-028 — Customer Mock Review Wave
+
+Date: 2026-09-05
+Status: **implemented in working increment; unreleased**
+Baseline: CAP-025 verified security/access boundary; `v1.0.3` remains frozen.
+
+## Decision
+
+The next delivery wave groups three tightly coupled capabilities so the first customer-facing website experience arrives before executable build/deployment:
+
+1. **CAP-026 — Customer Website Mock**: a first-class safe review stage derived from the validated generated artifact.
+2. **CAP-027 — Visual Refinement / Feedback Loop**: persisted customer feedback plus immutable deterministic revisions.
+3. **CAP-028 — Mock → Executable Preview**: explicit approval gate into the existing isolated build/validation/preview path.
+
+## Implementation
+
+The API adds `WebsiteMock`, version history and feedback persistence, with Alembic migrations `0003_website_mock` and `0004_website_mock_project_index`. CAP-025 security tables remain registered in Alembic metadata, while the mock project index is explicitly non-unique to support immutable revisions. The Studio pipeline now exposes a Customer Mock stage after generation and blocks Build until the mock is approved.
+
+The deterministic refinement contract currently recognizes `headline: ...` and `cta: ...`. Unsupported feedback is retained instead of being converted into an invented change. Revised generation and mock versions are persisted independently, preserving the existing immutable-versioning direction.
+
+The mock is rendered as safe HTML via Studio `iframe srcDoc`; generated application code is not executed inside the customer mock.
+
+## Verification
+
+- Focused customer-mock regression: **4 passed**.
+- Full API regression after the wave: **71 passed**.
+- Existing CAP-025 regression remains part of the full suite.
+- Studio build/lint remains to be run on the development machine after dependency installation because the uploaded source snapshot does not include `node_modules`.
+
+## Release posture
+
+This is a working increment only. No release version is advanced. The frozen `v1.0.3` baseline remains unchanged.
+
+
+## CAP-029 — Browser/Core Web Vitals Validation
+Working implementation adds disposable Chromium validation against the active live preview, with browser-rendering checks and FCP/LCP/INP/CLS/TTFB metrics. External metrics/alerting remains deferred.
+
+------------------------------------------------------------------------
+
+## CAP-009 / CAP-029 — Disposable Runtime Lifecycle Correction
+
+**Status:** Working corrective increment; release remains frozen at `v1.0.3`.
+
+### Root cause confirmed
+
+Live preview runtime networking was healthy: the API and Studio containers could both reach the active Next.js runtime directly on the shared Docker network and receive HTTP 200. The failure was runtime discovery: the preview proxy and browser validation depended on the API process-local `_sessions` registry. After an API restart, that registry could no longer describe already-running disposable containers, leaving orphaned runtimes and causing false `runtime unreachable` errors.
+
+### Corrective changes
+
+- Disposable runtime containers now carry explicit AWE labels for preview, project and generation version.
+- Runtime lookup for the Studio proxy resolves the running container from Docker labels and its published port instead of relying on `_sessions`.
+- Browser validation resolves the active runtime by project label and derives its current published port from Docker.
+- Starting a preview removes previously labeled preview containers for the same project before creating a replacement.
+- API startup removes orphaned AWE disposable preview containers left by an earlier API process.
+- The existing private shared-network proxy architecture is retained; no direct generated-code execution is introduced.
+
+### Verification target
+
+After rebuilding the API and restarting Compose, the expected sequence is: orphan preview cleanup -> start one labeled runtime -> Studio iframe renders through the same-origin proxy -> browser validation resolves the same runtime -> stopping the preview removes the labeled runtime. CAP-029 should only be marked verified after this end-to-end sequence succeeds.
+
+
+### CAP-009 / CAP-029 — Runtime lifecycle fix v4
+- Hardened legacy runtime detection: the Docker ancestor filter identifies `node:22-alpine` candidates; cleanup no longer requires an exact `Config.Image` string, which may be normalized by Docker.
+- Detection inspects the actual command and requires the npm start command plus port 3000.
+
+## CAP-029 — Studio reporting + preview readiness correction
+
+- Browser/Web Vitals results are rendered directly in the Preview & Validation stage, immediately below the live preview, instead of only in Deployment where the user cannot see them after running the browser check.
+- Each Web Vital retains acronym, full name, plain-language meaning, measured value, and technical check details.
+- Disposable preview startup now waits for the runtime to accept HTTP traffic before returning `started`, preventing the Studio iframe from racing Next.js startup and producing a transient proxy 502.
+- Runtime lifecycle, private `awe-platform` network routing, labels, and disposable cleanup remain unchanged.
+
+
+## CAP-031 working increment — Account Recovery & Email Verification
+Implemented a strict-mode account recovery boundary with persisted verification/reset token hashes, explicit expiry and single-use semantics, email verification state, generic request responses, and a development-only token exposure switch for local testing. Transactional email delivery remains deferred.
+
+
+## CAP-032 working increment — External SSO / OIDC
+
+Implemented a provider-neutral external authentication boundary with an OIDC authorization-code adapter, one-time hashed state and nonce protection, persisted provider/subject identity linking, optional verified-email JIT provisioning (disabled by default), and deterministic mock IdP mode for local regression. Strict-mode SSO endpoints remain public only for the authorization initiation/callback boundary; API-key authentication and project authorization are unchanged. Migration: `0007_sso`. SAML remains explicitly deferred rather than represented as an unverified implementation.
+
+---
+
+# CAP-033 — Complete Website Creation Journey / Mock Fidelity Correction
+
+Date: 2026-09-08
+Status: frozen after regression correction; CAP-033 acceptance remains verified.
+
+CAP-033 completes the intended Studio journey from generation through customer mock, build, validation, preview, deployment and live/completion handoff. During end-to-end acceptance testing, the Customer Website Mock was found to render a generic validation template while the executable preview rendered the business-specific generated site.
+
+The correction introduces a canonical `awe-preview.html` artifact emitted during the same deterministic generation pass as the executable Next.js files. It carries the generated site's business content, navigation, layout and visual tokens into the safe customer-facing mock without executing generated application code. Validation and mock creation now prefer this artifact, while older generations retain a backward-compatible generic fallback.
+
+Mock revisions also update the canonical preview artifact when supported headline/CTA feedback is applied, keeping the review representation aligned with the revised executable page.
+
+Regression correction: industry alias matching now uses word/phrase boundaries to prevent category collisions (e.g. marketing→retail via 'market', fintech→technology via 'tech'), and generic 'help ...' goal phrasing is normalized. Canonical preview validation is asserted against the current `awe-preview.html` contract. The focused CAP-033 regression must be rerun in the Docker-enabled Python test harness before deployment freeze.
+
+
+## Current capability status — CAP-034
+The content/data management foundation now provides persistent project-scoped content, draft/published state, version history, and authenticated APIs. Runtime consumption and Studio editing remain the next implementation increment; CAP-033 remains frozen.
+
+
+## CAP-035 — Studio Content Management + Live Preview Consumption
+
+In progress: persistent CAP-034 website content is now exposed in Studio and synchronized into the disposable live preview on publish, without regenerating the website artifact. Focused and full regression evidence is pending.
+
+## CAP-036 — End-to-End Customer Journey
+
+Date: 2026-09-09
+Status: **implementation increment — durable deployed-project resume correction added; end-to-end verification pending**
+
+CAP-036 focuses on proving one complete customer journey rather than introducing another isolated subsystem:
+
+`Create project → Discovery → Strategy → Design → Website Specification → Generate → Customer Mock → feedback/revision → approve → Build → Validate → Live Preview → edit content → publish → Deploy → Live → reopen project → continue editing`.
+
+The first concrete gap found in the current Studio was the post-deployment resume path. A deployed project could be reopened, but Studio selected Build because it interpreted the durable Preview workspace state through transient mock/build execution artifacts. CAP-036 now treats the latest successful deployment as the durable completion boundary: the API marks Preview and Deployment complete, Studio resumes at Deployment, and the live summary still provides return-to-editing without regeneration.
+
+This increment does not claim the whole customer journey is verified yet. The required acceptance evidence remains a fresh-project Studio run through deployment, live-site content verification, browser refresh/reopen, and continued editing/publishing without regeneration.
+
+## Workflow state and stage-transition governance
+
+The AWE Studio workflow is governed as a state machine rather than as a set of independently navigable pages. The authoritative rules are documented in `docs/workflow-state-machine.md`.
+
+The platform must explicitly track current project, current stage, prerequisite state, represented website/content version, permitted transitions and downstream artifact validity. UI availability is not sufficient authorization for a transition; domain/API state must enforce the same rules.
+
+Forward movement requires the applicable upstream state/artifacts. Backward movement is allowed only where the stage contract permits it and must not silently destroy immutable generated/deployment history. If an earlier-stage change affects downstream meaning, affected state must be marked stale and regeneration/revalidation must be required before that state can again be treated as current or deployable.
+
+This governance is now a mandatory regression concern for every future capability that changes workflow stages: forward and backward transitions, blocked transitions, prerequisites, stale-state behavior, version identity, failure recovery and project restoration must all be covered.
+
+## CAP-036 FIX-31 — Deployment-pinned live-preview navigation
+
+Date: 2026-09-14
+Status: **accepted and locally regression verified**
+
+A CAP-036 historical-deployment defect was found during live deployment acceptance: V7 initially rendered its own snapshot content (`Coyote - Sylvester`) but could switch to V8 (`Coyote - Tweety`) after browser navigation. Direct runtime and initial stable-proxy checks proved the deployment snapshots were correct; the failure was loss of deployment identity across generated navigation.
+
+FIX-31 makes deployment identity a first-class browser navigation boundary. The Studio exposes `/api/live-preview/deployment/<project-id>/<deployment-id>/...`, explicit `deployment_id` is authoritative in the API deployment proxy, and generated internal links/assets plus relevant Next.js navigation state are rewritten into the selected deployment namespace. Studio's current and historical deployment actions both pass the explicit deployment ID.
+
+The correction preserves the FIX-30 runtime model: the latest deployment remains canonical, the immediately previous deployment remains restorable for comparison/testing, older versions remain snapshot-backed history, runtime ports remain disposable, and historical restore does not promote or tear down the current live deployment.
+
+Acceptance evidence: direct V7/V8 render checks, deployment-scoped link inspection, focused API regression (`24 passed in 0.16s`), and browser navigation through the generated pages all passed. V7 remained V7 and V8 remained V8 throughout navigation.
+
+
+## CAP-037 — Deployment lifecycle/current-previous policy
+
+Implementation baseline: CAP-037 is implemented in the current package. It
+formalizes durable deployment currentness (`current`, `previous`, `historical`),
+snapshot observability, atomic promotion, local runtime reconciliation, and
+non-promoting historical restore. CAP-036/FIX-31 deployment-pinned browser
+navigation remains a required regression invariant.
+
+## CAP-038.1 endpoint reconciliation
+
+Repository-wide endpoint audit established two request planes. Studio deployment CRUD/history uses the canonical FastAPI `/api/v1/deployments...` contracts directly through `NEXT_PUBLIC_API_URL` and normal authentication/authorization. Generated live website traffic uses Studio `/api/live/...` routes, which privately proxy to `/api/v1/website-preview/live-proxy/...` with `X-AWE-Preview-Proxy`. New Studio live links no longer emit the FIX-31 `/api/live-preview/deployment/...` namespace; those routes remain compatibility aliases only. The full endpoint and interaction matrix is maintained in `docs/cap-038-endpoint-contract.md`.

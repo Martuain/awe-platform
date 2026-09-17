@@ -2,6 +2,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 
+from app.security import get_user
+
 from app.models import (
     CreateProjectRequest,
     DuplicateProjectRequest,
@@ -9,6 +11,7 @@ from app.models import (
     ProjectStatus,
     UpdateProjectRequest,
     WorkspaceSummary,
+    WebsiteExecutionState,
 )
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -16,12 +19,19 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 @router.post("", response_model=Project, status_code=201)
 async def create_project(request: CreateProjectRequest, http_request: Request):
-    return await http_request.app.state.repository.create_project(request.name)
+    return await http_request.app.state.repository.create_project(request.name, get_user(http_request).id)
 
 
 @router.get("", response_model=list[Project])
 async def list_projects(http_request: Request):
-    return await http_request.app.state.repository.list_projects()
+    user = get_user(http_request)
+    # Development mode is intentionally a single local workspace. Historical
+    # fixtures may have been created under different owners/tenants, so the
+    # project picker must remain able to see the complete local dataset.
+    # Production/authenticated users retain tenant-scoped visibility.
+    if user.auth_type == "development":
+        return await http_request.app.state.repository.list_projects()
+    return await http_request.app.state.repository.list_projects_for_user(user.id, user.tenant_id)
 
 
 @router.patch("/{project_id}", response_model=Project)
@@ -36,7 +46,7 @@ async def update_project(project_id: UUID, request: UpdateProjectRequest, http_r
         raise HTTPException(status_code=404, detail="Project not found")
 
 
-def _workspace_progress(context, strategy, design, specification, generation, deployments):
+def _workspace_progress(context, strategy, design, specification, generation, deployments, execution_state=None):
     completed: list[str] = []
     if context and context.status.value == "approved":
         completed.append("discovery")
@@ -48,8 +58,24 @@ def _workspace_progress(context, strategy, design, specification, generation, de
         completed.append("specification")
     if generation:
         completed.append("generation")
-    if generation and any(d.status.value == "deployed" for d in deployments):
-        completed.append("deployment")
+
+    # Deployment is the durable completion signal for the preview/deployment
+    # boundary. Once the latest deployment is live, reopening the project must
+    # not infer an unfinished Build/Preview state from transient execution
+    # artifacts that only existed in the previous Studio session.
+    latest_deployment = max(deployments, key=lambda d: d.created_at) if deployments else None
+    if latest_deployment and latest_deployment.status.value == "deployed":
+        completed.extend(["preview", "deployment"])
+        return completed, None
+
+    if execution_state and generation:
+        if execution_state.preview_status == "started":
+            completed.append("preview")
+            return completed, "deployment"
+        if execution_state.validation_status == "passed":
+            return completed, "preview"
+        if execution_state.build_status == "succeeded":
+            return completed, "build"
 
     ordered = ["discovery", "strategy", "design", "specification", "generation", "preview", "deployment"]
     for stage in ordered:
@@ -71,8 +97,9 @@ async def get_workspace(project_id: UUID, http_request: Request):
     specification = await repository.get_specification(project_id)
     generation = await repository.get_generation(project_id)
     deployments = await repository.list_deployments(project_id)
+    execution_state = await repository.get_execution_state(project_id)
 
-    completed, next_capability = _workspace_progress(context, strategy, design, specification, generation, deployments)
+    completed, next_capability = _workspace_progress(context, strategy, design, specification, generation, deployments, execution_state)
     if next_capability == "preview" and not generation:
         next_capability = "generation"
 
@@ -104,6 +131,7 @@ async def get_workspace(project_id: UUID, http_request: Request):
         completed_capabilities=completed,
         next_capability=next_capability,
         last_activity_at=last_activity,
+        execution_state=execution_state,
     )
 
 
@@ -111,7 +139,7 @@ async def get_workspace(project_id: UUID, http_request: Request):
 async def duplicate_project(project_id: UUID, request: DuplicateProjectRequest, http_request: Request):
     repository = http_request.app.state.repository
     try:
-        return await repository.duplicate_project(project_id, request.name)
+        return await repository.duplicate_project(project_id, request.name, get_user(http_request).id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Project not found")
 

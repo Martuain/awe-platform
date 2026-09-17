@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.models import DiscoveryApprovalResponse, DiscoveryMessageRequest, DiscoveryContext
 from app.services.discovery import DiscoveryService
+from app.security import authorize_project
 
 router = APIRouter(prefix="/business-discovery", tags=["business-discovery"])
 
@@ -21,6 +22,7 @@ async def start_discovery(project_id: UUID, request: Request):
 
 @router.post("/message", response_model=DiscoveryContext)
 async def add_message(payload: DiscoveryMessageRequest, request: Request):
+    await authorize_project(request, payload.project_id)
     if not await request.app.state.repository.get_context(payload.project_id):
         raise HTTPException(status_code=404, detail="Discovery session not found")
     try:

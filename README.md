@@ -123,3 +123,7 @@ This closes the lifecycle hole where a valid project could reach the Discovery c
 **MVP v1.0.3 release candidate — ready for owner validation.**
 
 Production SaaS readiness is not claimed.
+
+### Stable live deployment routing (CAP-038.1)
+
+Live deployments are addressed through `/api/live/{project_id}/...`; Docker runtime ports and container IDs are internal implementation details. A deployment-pinned URL is `/api/live/{project_id}/deployment/{deployment_id}/...`. The stable current route resolves the durable `CURRENT` deployment. See `docs/cap-038-stable-routing.md`.

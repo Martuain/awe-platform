@@ -29,6 +29,7 @@ def test_generation_requires_approved_specification_and_generates_pages():
         assert package.find('"@types/node":"20.17.6"') >= 0
         layout = next(file["content"] for file in body["files"] if file["path"] == "app/layout.tsx")
         contact = next(file["content"] for file in body["files"] if file["path"] == "app/contact/page.tsx")
+        assert 'import "./globals.css";' in layout
         assert "title:" in layout
         assert 'form className="card contact-form"' in contact
         assert 'name="email"' in contact

@@ -5,14 +5,17 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.0.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+
 COPY apps/studio/package.json apps/studio/package.json
 
 RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm --filter @awe/studio build
+RUN pnpm --filter @awe/studio build \
+    && mkdir -p apps/studio/.next/standalone/apps/studio/.next \
+    && cp -r apps/studio/.next/static apps/studio/.next/standalone/apps/studio/.next/static
 
 EXPOSE 3000
 
-CMD ["pnpm", "--filter", "@awe/studio", "start"]
+CMD ["node", "apps/studio/.next/standalone/apps/studio/server.js"]

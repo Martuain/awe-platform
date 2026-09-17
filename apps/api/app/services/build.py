@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from uuid import UUID
 
-from app.models import WebsiteBuildPlan, WebsiteBuildStatus
+from app.models import WebsiteBuildPlan, WebsiteBuildStatus, WebsiteExecutionState
 from app.services.docker_workspace import (
     create_workspace_volume,
     populate_workspace_volume,
@@ -124,6 +125,37 @@ class WebsiteBuildService:
         )
 
     async def execute(
+        self,
+        project_id: UUID,
+        install_timeout_seconds: int = DEFAULT_INSTALL_TIMEOUT_SECONDS,
+        build_timeout_seconds: int = DEFAULT_BUILD_TIMEOUT_SECONDS,
+    ) -> dict[str, object]:
+        from app.services.execution import build_execution_provider, ExecutionProviderError
+
+        plan = await self.plan(project_id)
+        if plan.status != WebsiteBuildStatus.PLANNED:
+            result = {"status": "rejected", "plan": plan.model_dump(mode="json")}
+            prior = await self.repository.get_execution_state(project_id) or WebsiteExecutionState(project_id=project_id)
+            await self.repository.save_execution_state(prior.model_copy(update={"generation_version": plan.generation_version, "build_status": "rejected", "build_result": result}, deep=True))
+            return result
+        generation = await self.repository.get_generation(project_id)
+        assert generation is not None
+        try:
+            provider = build_execution_provider()
+            result = await provider.execute(project_id, generation, plan, self, install_timeout_seconds, build_timeout_seconds)
+            result.setdefault("execution_provider", provider.name)
+            prior = await self.repository.get_execution_state(project_id) or WebsiteExecutionState(project_id=project_id)
+            await self.repository.save_execution_state(prior.model_copy(update={
+                "generation_version": generation.version, "build_status": str(result.get("status")), "build_result": result
+            }, deep=True))
+            return result
+        except ExecutionProviderError as exc:
+            result = {"status": "unavailable", "reason": str(exc), "execution_provider": os.getenv("AWE_BUILD_EXECUTION_PROVIDER", "local-docker"), "plan": plan.model_dump(mode="json")}
+            prior = await self.repository.get_execution_state(project_id) or WebsiteExecutionState(project_id=project_id)
+            await self.repository.save_execution_state(prior.model_copy(update={"generation_version": generation.version, "build_status": "unavailable", "build_result": result}, deep=True))
+            return result
+
+    async def _execute_local_docker(
         self,
         project_id: UUID,
         install_timeout_seconds: int = DEFAULT_INSTALL_TIMEOUT_SECONDS,

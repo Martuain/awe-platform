@@ -18,10 +18,44 @@ class DiscoveryStatus(str, Enum):
     APPROVED = "approved"
 
 
+class TeamRole(str, Enum):
+    ADMIN = "admin"
+    MEMBER = "member"
+
+
+class TeamMember(BaseModel):
+    user_id: UUID
+    tenant_id: UUID
+    role: TeamRole = TeamRole.MEMBER
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class TeamInvitation(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    tenant_id: UUID
+    inviter_id: UUID
+    email: str
+    role: TeamRole = TeamRole.MEMBER
+    status: str = "pending"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    expires_at: datetime
+    accepted_at: datetime | None = None
+
+
+class TeamInviteRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    role: TeamRole = TeamRole.MEMBER
+
+
+class TeamAcceptInvitationRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=500)
+
+
 class Project(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     name: str
     status: ProjectStatus = ProjectStatus.ACTIVE
+    owner_id: UUID = Field(default=UUID("00000000-0000-0000-0000-000000000001"))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -50,6 +84,7 @@ class WorkspaceSummary(BaseModel):
     completed_capabilities: list[str] = Field(default_factory=list)
     next_capability: str | None = None
     last_activity_at: datetime | None = None
+    execution_state: WebsiteExecutionState | None = None
 
 
 class DiscoveryMessageRequest(BaseModel):
@@ -239,6 +274,12 @@ class WebsiteGeneration(BaseModel):
 
 
 
+class DeploymentLifecycleRole(str, Enum):
+    CURRENT = "current"
+    PREVIOUS = "previous"
+    HISTORICAL = "historical"
+
+
 class DeploymentStatus(str, Enum):
     QUEUED = "queued"
     DEPLOYING = "deploying"
@@ -247,19 +288,61 @@ class DeploymentStatus(str, Enum):
     STOPPED = "stopped"
 
 
+class WebsiteContentStatus(str, Enum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+
+
+class WebsiteContentItem(BaseModel):
+    project_id: UUID
+    content_id: UUID = Field(default_factory=uuid4)
+    page: str = Field(min_length=1, max_length=200)
+    key: str = Field(min_length=1, max_length=200)
+    content_type: str = Field(default="text", min_length=1, max_length=32)
+    value: str = Field(default="")
+    version: int = 1
+    status: WebsiteContentStatus = WebsiteContentStatus.DRAFT
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    published_at: datetime | None = None
+
+
+class WebsiteContentUpsertRequest(BaseModel):
+    page: str = Field(min_length=1, max_length=200)
+    key: str = Field(min_length=1, max_length=200)
+    content_type: str = Field(default="text", min_length=1, max_length=32)
+    value: str = Field(default="", max_length=100000)
+
+
+
+
 class WebsiteDeployment(BaseModel):
     project_id: UUID
     deployment_id: UUID = Field(default_factory=uuid4)
     generation_version: int
     version: int = 1
     status: DeploymentStatus = DeploymentStatus.QUEUED
+    lifecycle_role: DeploymentLifecycleRole = DeploymentLifecycleRole.HISTORICAL
     provider: str = "local"
     url: str | None = None
+    snapshot_ref: str | None = None
     runtime_id: str | None = None
     diagnostics: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     deployed_at: datetime | None = None
     stopped_at: datetime | None = None
+
+class WebsiteExecutionState(BaseModel):
+    project_id: UUID
+    generation_version: int | None = None
+    build_status: str | None = None
+    build_result: dict[str, object] = Field(default_factory=dict)
+    validation_status: str | None = None
+    validation: WebsiteValidation | None = None
+    preview_status: str | None = None
+    preview: WebsitePreview | None = None
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 class WebsitePreviewStatus(str, Enum):
     STARTED = "started"
@@ -278,6 +361,30 @@ class WebsitePreview(BaseModel):
     diagnostics: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+
+
+
+class WebsiteMockStatus(str, Enum):
+    READY_FOR_REVIEW = "ready_for_review"
+    CHANGES_REQUESTED = "changes_requested"
+    APPROVED = "approved"
+
+
+class WebsiteMock(BaseModel):
+    project_id: UUID
+    mock_id: UUID = Field(default_factory=uuid4)
+    generation_version: int
+    version: int = 1
+    status: WebsiteMockStatus = WebsiteMockStatus.READY_FOR_REVIEW
+    title: str = "AWE Website Mock"
+    html: str = ""
+    feedback: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    approved_at: datetime | None = None
+
+
+class WebsiteMockFeedbackRequest(BaseModel):
+    feedback: str = Field(min_length=1, max_length=5000)
 
 class WebsiteBuildStatus(str, Enum):
     PLANNED = "planned"

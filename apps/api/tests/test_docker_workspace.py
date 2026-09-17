@@ -8,6 +8,7 @@ from app.services.docker_workspace import (
     create_workspace_volume,
     populate_workspace_volume,
     remove_workspace_volume,
+    restore_deployment_snapshot,
 )
 
 
@@ -118,3 +119,28 @@ def test_remove_workspace_volume_uses_docker_volume_rm(monkeypatch):
     remove_workspace_volume("awe-build-test")
 
     assert calls == [["docker", "volume", "rm", "-f", "awe-build-test"]]
+
+
+def test_restore_deployment_snapshot_copies_persisted_volume(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        "app.services.docker_workspace.create_workspace_volume",
+        lambda prefix: "awe-preview-restore-test",
+    )
+    monkeypatch.setattr(
+        "app.services.docker_workspace.subprocess.run",
+        lambda command, **kwargs: (
+            calls.append(command)
+            or subprocess.CompletedProcess(command, 0, "", "")
+        ),
+    )
+
+    restored = restore_deployment_snapshot("awe-deployment-deploy123")
+
+    assert restored == "awe-preview-restore-test"
+    assert calls == [[
+        "docker", "run", "--rm",
+        "-v", "awe-deployment-deploy123:/from:ro",
+        "-v", "awe-preview-restore-test:/to:rw",
+        "alpine:3.22", "sh", "-c", "cp -a /from/. /to/",
+    ]]

@@ -1,7 +1,8 @@
 from html import escape
+import re
 from uuid import UUID, uuid4
 
-from app.models import WebsiteValidation, WebsiteValidationStatus
+from app.models import WebsiteValidation, WebsiteValidationStatus, WebsiteExecutionState
 from app.store import Repository
 
 
@@ -15,7 +16,12 @@ class WebsiteValidationService:
             raise KeyError(project_id)
 
         files = {item.path: item.content for item in generation.files}
-        page_files = [path for path in files if path.startswith("app/") and path.endswith("/page.tsx") or path == "app/page.tsx"]
+        page_files = [
+            path
+            for path in files
+            if path == "app/page.tsx"
+            or (path.startswith("app/") and path.endswith("/page.tsx"))
+        ]
         checks = {
             "generation_present": bool(generation.files),
             "package_manifest_present": "package.json" in files,
@@ -23,7 +29,7 @@ class WebsiteValidationService:
             "global_styles_present": "app/globals.css" in files,
             "pages_generated": len(generation.pages_generated) > 0,
             "page_files_present": len(page_files) == len(generation.pages_generated),
-            "tsx_exports_present": all("export default function Page" in files[path] for path in page_files),
+            "tsx_exports_present": all(re.search(r"export default (?:async )?function Page", files[path]) is not None for path in page_files),
         }
         diagnostics = []
         if not checks["package_manifest_present"]:
@@ -39,7 +45,7 @@ class WebsiteValidationService:
 
         passed = all(checks.values())
         preview = self._build_preview(generation, files)
-        return WebsiteValidation(
+        result = WebsiteValidation(
             project_id=project_id,
             validation_id=uuid4(),
             generation_version=generation.version,
@@ -48,9 +54,22 @@ class WebsiteValidationService:
             diagnostics=diagnostics,
             preview=preview,
         )
+        prior = await self.repository.get_execution_state(project_id) or WebsiteExecutionState(project_id=project_id)
+        await self.repository.save_execution_state(prior.model_copy(update={
+            "generation_version": generation.version,
+            "validation_status": result.status.value,
+            "validation": result,
+        }, deep=True))
+        return result
 
     @staticmethod
     def _build_preview(generation, files: dict[str, str]) -> dict[str, str]:
+        canonical = files.get("awe-preview.html")
+        if canonical:
+            return {"format": "html", "title": _extract_title(canonical), "html": canonical}
+
+        # Backward-compatible fallback for generations created before the
+        # canonical preview artifact existed.
         pages = generation.pages_generated or ["/"]
         title = "AWE Generated Website"
         home_file = files.get("app/page.tsx", "")
@@ -60,3 +79,9 @@ class WebsiteValidationService:
         nav = "".join(f'<a href="{escape(path)}">{escape(path or "/")}</a>' for path in pages)
         body = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(title)}</title><style>body{{margin:0;font-family:system-ui,sans-serif;color:#151515;background:#fff}}main{{max-width:960px;margin:auto;padding:48px 24px}}nav{{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:64px}}a{{color:inherit;text-decoration:none}}.hero{{padding:48px 0}}.cta{{display:inline-block;padding:12px 18px;background:#111;color:#fff;border-radius:8px}}section{{padding:40px 0;border-top:1px solid #eee}}</style></head><body><main><nav>{nav}</nav><div class="hero"><p>AWE generated website</p><h1>{escape(title)}</h1><p>CAP-006 preview rendered from the generated website artifact.</p><a class="cta" href="#pages">Explore pages</a></div><section id="pages"><h2>Generated pages</h2><ul>{''.join(f'<li><a href="{escape(path)}">{escape(path)}</a></li>' for path in pages)}</ul></section></main></body></html>"""
         return {"format": "html", "title": title, "html": body}
+
+
+def _extract_title(html: str) -> str:
+    if "<title>" in html and "</title>" in html:
+        return html.split("<title>", 1)[1].split("</title>", 1)[0]
+    return "AWE Website Mock"

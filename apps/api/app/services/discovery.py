@@ -12,6 +12,7 @@ from app.models import (
     DiscoverySource,
 )
 from app.store import Repository
+from app.services.model_gateway import build_model_gateway
 
 
 @dataclass
@@ -28,13 +29,34 @@ class MockModelGateway:
 
 
 INDUSTRY_ALIASES = (
-    ("restaurant", ("restaurant", "restaurants", "café", "cafe", "coffee shop", "coffeehouse", "coffee house", "bakery", "bistro")),
+    ("restaurant", (
+        "restaurant", "restaurants", "café", "cafe", "cafeteria", "coffee shop",
+        "coffeehouse", "coffee house", "bakery", "bistro", "bar", "tapas",
+        "tienda de café", "cafetería",
+    )),
+    ("retail", (
+        "retail", "retailer", "shop", "store", "retail shop", "retail store",
+        "boutique", "market", "mercado", "tienda", "comercio",
+    )),
+    ("hospitality", ("hospitality", "hotel", "hotels", "lodging", "accommodation")),
     ("architecture", ("architecture", "architect", "architectural")),
     ("marketing", ("marketing", "agency", "advertising")),
     ("saas", ("saas", "software as a service")),
+    ("technology", ("technology", "tech", "software", "it company", "information technology")),
     ("fintech", ("fintech", "financial technology")),
-    ("ecommerce", ("ecommerce", "e-commerce", "online store")),
+    ("finance", ("finance", "financial services", "banking", "investment")),
+    ("ecommerce", ("ecommerce", "e-commerce", "online store", "online shop")),
     ("consulting", ("consulting", "consultancy", "consultant")),
+    ("healthcare", ("healthcare", "health care", "medical", "clinic", "hospital")),
+    ("education", ("education", "school", "university", "training", "academy")),
+    ("real estate", ("real estate", "property", "realtor", "estate agency")),
+    ("legal", ("legal", "law firm", "lawyer", "attorney")),
+    ("construction", ("construction", "builder", "building contractor")),
+    ("fitness", ("fitness", "gym", "personal training")),
+    ("beauty", ("beauty", "salon", "spa", "hairdresser", "barber")),
+    ("fashion", ("fashion", "clothing", "apparel", "fashion brand")),
+    ("automotive", ("automotive", "car dealership", "auto repair", "automobile")),
+    ("travel", ("travel", "tourism", "travel agency", "tour operator")),
 )
 
 GOAL_PATTERNS = (
@@ -79,7 +101,7 @@ def _extract_goals(message: str) -> list[str]:
         match = re.search(pattern, message, flags=re.IGNORECASE)
         if match:
             value = _clean_extracted(match.group(1))
-            value = re.sub(r"^help\s+us\s+", "", value, flags=re.IGNORECASE)
+            value = re.sub(r"^help(?:\s+us)?\s+", "", value, flags=re.IGNORECASE)
             if value:
                 goals.append(value)
                 break
@@ -104,11 +126,39 @@ def extract_knowledge(message: str) -> dict:
     """
 
     lower = message.lower()
-    industry = next(
-        canonical
+    # Match aliases as words/phrases rather than arbitrary substrings. This
+    # prevents collisions such as "marketing" -> "retail" via "market" and
+    # "fintech" -> "technology" via "tech". Prefer the longest matching alias
+    # when multiple categories are present.
+    industry_matches = [
+        (len(alias), canonical)
         for canonical, aliases in INDUSTRY_ALIASES
-        if any(alias in lower for alias in aliases)
-    ) if any(alias in lower for _, aliases in INDUSTRY_ALIASES for alias in aliases) else None
+        for alias in aliases
+        if re.search(r"(?<!\\w)" + re.escape(alias) + r"(?!\\w)", lower)
+    ]
+    industry = max(industry_matches, key=lambda item: item[0])[1] if industry_matches else None
+
+    # Also recognize explicit industry/sector statements when the value is not
+    # in the canonical alias catalogue. This prevents Discovery from repeatedly
+    # asking the same question simply because a customer used a valid but
+    # previously unseen industry label.
+    if not industry:
+        explicit_industry = re.search(
+            r"(?:our\s+)?(?:industry|sector|business\s+sector)\s*(?:is|:|-)?\s*([^.!?]+)",
+            message,
+            flags=re.IGNORECASE,
+        )
+        if explicit_industry:
+            industry = _clean_extracted(explicit_industry.group(1))
+
+    if not industry:
+        operating_in = re.search(
+            r"(?:we\s+)?(?:operate|work)\s+(?:in|within)\s+([^.!?]+)",
+            message,
+            flags=re.IGNORECASE,
+        )
+        if operating_in:
+            industry = _clean_extracted(operating_in.group(1))
 
     business_name = None
     match = re.search(
@@ -199,7 +249,7 @@ class DiscoveryService:
         gateway: MockModelGateway | None = None,
     ) -> None:
         self.repository = repository
-        self.gateway = gateway or MockModelGateway()
+        self.gateway = gateway or build_model_gateway(MockModelGateway())
 
     async def start(self, project_id):
         existing = await self.repository.get_context(project_id)

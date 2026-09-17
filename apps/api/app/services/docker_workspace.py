@@ -72,6 +72,64 @@ def remove_workspace_volume(volume_name: str) -> None:
     )
 
 
+def create_deployment_snapshot(source_volume: str, deployment_id: str) -> str:
+    """Create an immutable-by-convention copy of a successful deployment workspace."""
+    name = f"awe-deployment-{deployment_id}"
+    subprocess.run(
+        ["docker", "volume", "rm", "-f", name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    created = subprocess.run(
+        ["docker", "volume", "create", name],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if created.returncode != 0:
+        raise RuntimeError(
+            created.stderr.strip() or "Failed to create deployment snapshot volume."
+        )
+
+    result = subprocess.run(
+        [
+            "docker", "run", "--rm",
+            "-v", f"{source_volume}:/from:ro",
+            "-v", f"{name}:/to:rw",
+            DOCKER_WORKSPACE_IMAGE,
+            "sh", "-c", "cp -a /from/. /to/",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        remove_workspace_volume(name)
+        raise RuntimeError(
+            result.stderr.strip() or "Failed to persist deployment snapshot."
+        )
+    return name
+
+
+def deployment_snapshot_volume(deployment_id: str) -> str:
+    return f"awe-deployment-{deployment_id}"
+
+
+def restore_deployment_snapshot(snapshot_volume: str, prefix: str = "awe-preview-restore") -> str:
+    """Copy a persisted deployment snapshot into a disposable runtime workspace."""
+    target = create_workspace_volume(prefix)
+    result = subprocess.run(
+        ["docker", "run", "--rm", "-v", f"{snapshot_volume}:/from:ro",
+         "-v", f"{target}:/to:rw", DOCKER_WORKSPACE_IMAGE, "sh", "-c", "cp -a /from/. /to/"],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        remove_workspace_volume(target)
+        raise RuntimeError(result.stderr.strip() or "Failed to restore deployment snapshot.")
+    return target
+
+
 def _build_archive(files: list[tuple[str, str]]) -> bytes:
     buffer = io.BytesIO()
 

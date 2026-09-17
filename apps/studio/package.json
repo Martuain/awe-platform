@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:mock-isolation": "node --experimental-strip-types scripts/test-mock-preview-isolation.mts",
+    "test:cap038-routing": "node --experimental-strip-types scripts/test-cap038-routing.mts"
   },
   "dependencies": {
     "next": "15.5.21",

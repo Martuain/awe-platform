@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from html import escape
 from uuid import uuid4
+import re
 
 from app.models import GeneratedFile, WebsiteGeneration, WebsiteGenerationStatus
 from app.store import Repository
@@ -186,7 +187,7 @@ class WebsiteGenerationService:
     def __init__(self, repository: Repository) -> None:
         self.repository = repository
 
-    async def generate(self, project_id) -> WebsiteGeneration:
+    async def generate(self, project_id, feedback: str | None = None) -> WebsiteGeneration:
         project = await self.repository.get_project(project_id)
         specification = await self.repository.get_specification(project_id)
         design = await self.repository.get_design(project_id)
@@ -228,7 +229,8 @@ class WebsiteGenerationService:
 
         files = [
             GeneratedFile(path="package.json", content='''{"name":"awe-generated-site","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start"},"dependencies":{"next":"15.5.21","react":"19.1.9","react-dom":"19.1.9"},"devDependencies":{"typescript":"5.8.2","@types/react":"19.1.10","@types/node":"20.17.6"}}'''),
-            GeneratedFile(path="app/layout.tsx", content=f'''import React from "react";
+            GeneratedFile(path="app/layout.tsx", content=f'''import "./globals.css";
+import React from "react";
 
 export const metadata = {{
   title: {{
@@ -243,12 +245,14 @@ export default function RootLayout({{ children }}: {{ children: React.ReactNode 
 }}
 '''),
             GeneratedFile(path="app/globals.css", content=globals_css),
+            GeneratedFile(path="awe-content.json", content="{}"),
         ]
 
         nav = "".join(
             f'<a href="{escape(page.path, quote=True)}">{escape(page.name)}</a>'
             for page in specification.pages
         )
+        preview_pages: dict[str, str] = {}
 
         for page in specification.pages:
             filename = "app/page.tsx" if page.path == "/" else f"app{page.path}/page.tsx"
@@ -273,6 +277,18 @@ export default function RootLayout({{ children }}: {{ children: React.ReactNode 
                     f'<div className="card"><p>{escape(secondary_copy)}</p></div></section>'
                 )
             sections = "".join(section_blocks)
+            preview_section_blocks = []
+            for section in page.required_sections:
+                heading = _section_heading(section)
+                primary_copy, secondary_copy = _page_copy(
+                    page.path, section, site_name_raw, positioning, industry, audience, goal
+                )
+                preview_section_blocks.append(
+                    f'<section><h2>{escape(heading)}</h2>'
+                    f'<p class="lead">{escape(primary_copy)}</p>'
+                    f'<div class="card"><p>{escape(secondary_copy)}</p></div></section>'
+                )
+            preview_sections = "".join(preview_section_blocks)
             cta = (
                 f'<a className="cta" href="/contact">{escape(page.primary_cta)}</a>'
                 if page.primary_cta
@@ -294,13 +310,61 @@ export default function RootLayout({{ children }}: {{ children: React.ReactNode 
   <p className="lead">We’ll review your message and get back to you as soon as possible.</p>
 </section>'''
             eyebrow = "Coffee, food and hospitality" if _is_hospitality(industry, goal) else "AWE generated website"
-            content = f'''export const metadata = {{ title: {json.dumps(page.name)} }};
+            content = f'''import {{ readFile }} from "node:fs/promises";
 
-export default function Page() {{
-  return <main><nav><strong>{site_name}</strong><div className="links">{nav}</div></nav><div className="hero"><span className="eyebrow">{escape(eyebrow)}</span><h1>{page_name}</h1><p className="lead">{objective}</p><p className="lead">{positioning_html}</p>{cta}</div>{sections}{contact_form}<footer>Built from an approved AWE strategy and design · {safe_tone}</footer></main>;
+export const dynamic = "force-dynamic";
+
+export const metadata = {{ title: {json.dumps(page.name)} }};
+
+async function contentValue(key: string, fallback: string) {{
+  try {{
+    const raw = await readFile("/workspace/awe-content.json", "utf8");
+    const data = JSON.parse(raw) as Record<string, Record<string, string>>;
+    return data[{json.dumps(page.path)}]?.[key] || fallback;
+  }} catch {{
+    return fallback;
+  }}
+}}
+
+export default async function Page() {{
+  const headline = await contentValue("headline", {json.dumps(page.name)});
+  const pagePositioning = await contentValue("positioning", {json.dumps(positioning)});
+  const editableCta = await contentValue("cta", {json.dumps(page.primary_cta or "")});
+  return <main><nav><strong>{site_name}</strong><div className="links">{nav}</div></nav><div className="hero"><span className="eyebrow">{escape(eyebrow)}</span><h1>{{headline}}</h1><p className="lead">{objective}</p><p className="lead">{{pagePositioning}}</p>{{editableCta && <a className="cta" href="/contact">{{editableCta}}</a>}}</div>{sections}{contact_form}<footer>Built from an approved AWE strategy and design · {safe_tone}</footer></main>;
 }}
 '''
             files.append(GeneratedFile(path=filename, content=content))
+            preview_cta = (
+                f'<a class="cta" href="/contact">{escape(page.primary_cta)}</a>'
+                if page.primary_cta else ""
+            )
+            preview_contact_form = ""
+            if page.path == "/contact":
+                preview_contact_form = (
+                    '<section id="contact"><h2>Start a conversation</h2>'
+                    '<form class="card contact-form" action="/contact" method="get">'
+                    '<label for="name">Name</label><input id="name" name="name" required>'
+                    '<label for="email">Email</label><input id="email" name="email" type="email" required>'
+                    '<label for="message">Message</label><textarea id="message" name="message" rows="5" required></textarea>'
+                    '<button class="cta" type="submit">Send enquiry</button></form>'
+                    '<p class="lead">We’ll review your message and get back to you as soon as possible.</p></section>'
+                )
+            preview_eyebrow = "Coffee, food and hospitality" if _is_hospitality(industry, goal) else "AWE generated website"
+            preview_pages[page.path] = (
+                f'<main><nav><strong>{site_name}</strong><div class="links">{nav}</div></nav>'
+                f'<div class="hero"><span class="eyebrow">{escape(preview_eyebrow)}</span><h1>{page_name}</h1>'
+                f'<p class="lead">{objective}</p><p class="lead">{positioning_html}</p>{preview_cta}</div>'
+                f'{preview_sections}{preview_contact_form}<footer>Built from an approved AWE strategy and design · {safe_tone}</footer></main>'
+            )
+
+        preview_home = preview_pages.get("/", next(iter(preview_pages.values()), "<main></main>"))
+        preview_html = (
+            f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            f'<meta name="viewport" content="width=device-width,initial-scale=1">'
+            f'<title>{escape(site_name_raw)}</title><style>{globals_css}</style></head>'
+            f'<body>{preview_home}</body></html>'
+        )
+        files.append(GeneratedFile(path="awe-preview.html", content=preview_html))
 
         validation = {
             "specification_approved": True,
@@ -322,9 +386,12 @@ export default function Page() {{
             "framework": "nextjs-app-router",
         }
         status = WebsiteGenerationStatus.VALIDATED if all(value is True or isinstance(value, str) for value in validation.values()) else WebsiteGenerationStatus.FAILED
+        current = await self.repository.get_generation(project_id)
+        version = (current.version + 1) if current else 1
         generation = WebsiteGeneration(
             project_id=project_id,
             generation_id=uuid4(),
+            version=version,
             source_specification_version=specification.version,
             files=files,
             pages_generated=[page.path for page in specification.pages],
@@ -338,7 +405,44 @@ export default function Page() {{
                 "The executable MVP avoids inventing unsupported prices, addresses, testimonials or other business facts.",
             ],
         )
+        if feedback:
+            generation = self._apply_revision_feedback(generation, feedback)
         return await self.repository.create_generation(generation)
+
+    @staticmethod
+    def _apply_revision_feedback(generation: WebsiteGeneration, feedback: str) -> WebsiteGeneration:
+        """Apply explicit, deterministic mock-refinement instructions.
+
+        Supported syntax is intentionally narrow: ``headline: ...`` and
+        ``cta: ...``. Unsupported feedback is retained as rationale without
+        silently inventing a design change.
+        """
+        normalized = feedback.strip()
+        files = [item.model_copy(deep=True) for item in generation.files]
+        changed = False
+        headline_match = re.search(r"headline\s*:\s*(.+)", normalized, re.IGNORECASE)
+        cta_match = re.search(r"cta\s*:\s*(.+)", normalized, re.IGNORECASE)
+        for item in files:
+            if item.path == "app/page.tsx" and headline_match:
+                item.content = re.sub(r"<h1>.*?</h1>", f"<h1>{escape(headline_match.group(1).strip())}</h1>", item.content, count=1, flags=re.DOTALL)
+                changed = True
+            if item.path == "app/page.tsx" and cta_match:
+                item.content = re.sub(r"(<a className=\"cta\"[^>]*>).*?(</a>)", lambda m: m.group(1) + escape(cta_match.group(1).strip()) + m.group(2), item.content, count=1, flags=re.DOTALL)
+                changed = True
+            if item.path == "awe-preview.html" and headline_match:
+                item.content = re.sub(r"<h1>.*?</h1>", f"<h1>{escape(headline_match.group(1).strip())}</h1>", item.content, count=1, flags=re.DOTALL)
+            if item.path == "awe-preview.html" and cta_match:
+                item.content = re.sub(r"(<a class=\"cta\"[^>]*>).*?(</a>)", lambda m: m.group(1) + escape(cta_match.group(1).strip()) + m.group(2), item.content, count=1, flags=re.DOTALL)
+        generation.files = files
+        generation.rationale.append(f"Customer mock feedback captured: {feedback}")
+        if changed:
+            generation.rationale.append("Revision applied using deterministic headline/CTA refinement instructions.")
+        else:
+            generation.rationale.append("Feedback was retained for review; no supported deterministic refinement syntax was detected.")
+        return generation
+
+    async def revise(self, project_id, feedback: str) -> WebsiteGeneration:
+        return await self.generate(project_id, feedback=feedback)
 
     async def get(self, project_id):
         generation = await self.repository.get_generation(project_id)

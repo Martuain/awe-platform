@@ -25,6 +25,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://awe:awe@postgres:5432/awe
       REDIS_URL: redis://redis:6379/0
+      AWE_PREVIEW_NETWORK: awe-platform
+      AWE_INTERNAL_PREVIEW_SECRET: dev-preview-proxy
     ports:
       - "8000:8000"
     volumes:
@@ -36,11 +38,15 @@ services:
         condition: service_started
 
   studio:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       context: .
       dockerfile: apps/studio/Dockerfile
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      INTERNAL_API_URL: http://api:8000
+      AWE_INTERNAL_PREVIEW_SECRET: dev-preview-proxy
     ports:
       - "3000:3000"
     depends_on:
@@ -48,3 +54,6 @@ services:
 
 volumes:
   postgres_data:
+networks:
+  default:
+    name: awe-platform

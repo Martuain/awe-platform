@@ -28,4 +28,4 @@ def test_validation_returns_passed_checks_and_preview():
         assert body["status"] == "passed"
         assert all(body["checks"].values())
         assert body["preview"]["format"] == "html"
-        assert "CAP-006 preview" in body["preview"]["html"]
+        assert "AWE generated website" in body["preview"]["html"]
